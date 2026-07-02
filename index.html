@@ -263,9 +263,7 @@ async function loginDePrueba() {
 // Luego vuelve a comentarla para que no se recargue infinitamente.
 // loginDePrueba();
 
-  const supabase = (window.supabase && SUPABASE_URL.indexOf('TU-PROYECTO') === -1)
-    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-    : null;
+
 
   // =====================================================================
   // ESTADO
