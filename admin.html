@@ -187,9 +187,17 @@
   // =====================================================================
   // CONFIGURACIÓN DE SUPABASE — usa las mismas credenciales que index.html
   // =====================================================================
-  const SUPABASE_URL = 'https://jxjevmykipkxdfdczznt.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4amV2bXlraXBreGRmZGN6em50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MzA4MzQsImV4cCI6MjA5NzQwNjgzNH0.zJbYDqJi1YcbbxHMz6DFXdMxWhF4k_WxPcuj4dXmeX0';
+  const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
+  const SUPABASE_ANON_KEY = 'TU-ANON-KEY';
 
+  // Solo existe un admin, así que este panel no muestra un formulario de
+  // login: se autentica en segundo plano con esta cuenta apenas carga la
+  // página. La seguridad de este panel depende de que la URL (el nombre
+  // de este archivo) no se comparta ni se indexe — cualquiera que abra el
+  // código fuente puede ver este correo y clave, así que trátalo como un
+  // dato sensible del mismo nivel que la URL "difícil de adivinar".
+  const ADMIN_EMAIL = 'admin@tuempresa.com';
+  const ADMIN_PASSWORD = 'TU-CLAVE-SEGURA';
 
   const supabase = (window.supabase && SUPABASE_URL.indexOf('TU-PROYECTO') === -1)
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -204,14 +212,11 @@
   // ESTADO
   // =====================================================================
   let state = {
-    booting: true,          // resolviendo sesión inicial
+    booting: true,          // resolviendo sesión / autenticación inicial
     perfil: null,           // { id, nombre, rol }
     accessDenied: false,
+    authError: null,
     configError: !supabase,
-
-    loginForm: { email:'', password:'' },
-    loginError: null,
-    loggingIn: false,
 
     tab: 'resumen',
 
@@ -274,16 +279,21 @@
   };
 
   // =====================================================================
-  // AUTH
+  // AUTH — sin formulario visible: login silencioso con la cuenta admin
   // =====================================================================
   async function boot(){
     if (!supabase){ setState({ booting:false }); return; }
     const { data } = await supabase.auth.getSession();
     if (data && data.session){
       await cargarPerfil();
-    } else {
-      setState({ booting:false });
+      return;
     }
+    const { error: signInErr } = await supabase.auth.signInWithPassword({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
+    if (signInErr){
+      setState({ booting:false, accessDenied:true, authError: 'No se pudo autenticar el panel: ' + signInErr.message });
+      return;
+    }
+    await cargarPerfil();
   }
 
   async function cargarPerfil(){
@@ -293,40 +303,17 @@
       const { data: perfil, error: perfilErr } = await supabase
         .from('usuarios').select('id, nombre, rol').eq('auth_user_id', authData.user.id).maybeSingle();
       if (perfilErr) throw perfilErr;
-      if (!perfil){ setState({ booting:false, accessDenied:true, loginError:'Tu cuenta no está vinculada a un perfil en "usuarios".' }); return; }
+      if (!perfil){ setState({ booting:false, accessDenied:true, authError:'La cuenta admin no está vinculada a un perfil en "usuarios".' }); return; }
       if (perfil.rol !== 'admin' && perfil.rol !== 'supervisor'){
-        setState({ booting:false, accessDenied:true, perfil });
+        setState({ booting:false, accessDenied:true, perfil, authError:`La cuenta configurada tiene rol "${perfil.rol}", no admin/supervisor.` });
         return;
       }
       setState({ booting:false, perfil, accessDenied:false });
       cargarDatosBase();
       cargarResumen();
     } catch(e){
-      setState({ booting:false, loginError: e.message || String(e) });
+      setState({ booting:false, accessDenied:true, authError: e.message || String(e) });
     }
-  }
-
-  async function login(){
-    setState({ loggingIn:true, loginError:null });
-    const { email, password } = state.loginForm;
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error){ setState({ loggingIn:false, loginError: error.message }); return; }
-    setState({ loggingIn:false });
-    await cargarPerfil();
-  }
-
-  async function logout(){
-    await supabase.auth.signOut();
-    state = {
-      booting:false, perfil:null, accessDenied:false, configError:!supabase,
-      loginForm:{ email:'', password:'' }, loginError:null, loggingIn:false,
-      tab:'resumen', vehiculos:[], choferes:[], dataBoot:false,
-      kpis:null, kpisLoading:false, alertasDiscrepancia:[], alertasSospechosos:[], resumenLoading:false,
-      turnos:[], turnosLoading:false, turnosFiltro:{ vehiculo:'', estado:'', desde:'', hasta:'' },
-      gastos:[], gastosLoading:false, gastosFiltro:{ vehiculo:'', tipo:'', soloSospechosos:false },
-      quincenal:[], quincenalLoading:false, detalleTurnoId:null, detalle:null, detalleLoading:false,
-    };
-    scheduleRender();
   }
 
   // =====================================================================
@@ -461,24 +448,19 @@
   }
 
   function loginScreen(){
-    const denegado = state.accessDenied && state.perfil;
     return `
       <div class="login-screen">
         <div class="login-box">
           <div class="card">
             <div class="eyebrow">Flota · Panel Admin</div>
-            <h1>Acceso de supervisión</h1>
-            ${state.loginError ? `<div class="login-error">⚠ ${state.loginError}</div>` : ''}
-            ${denegado ? `
-              <div class="login-error">Tu cuenta (${state.perfil.nombre}, rol "${state.perfil.rol}") no tiene permisos de administrador o supervisor.</div>
-              <button class="btn btn-ghost btn-full" id="btn-logout">Cerrar sesión</button>
-            ` : `
-              <label>Correo</label>
-              <input type="email" id="login_email" value="${state.loginForm.email}" placeholder="admin@tuempresa.com">
-              <label>Contraseña</label>
-              <input type="password" id="login_password" value="${state.loginForm.password}">
-              <button class="btn btn-primary btn-full" id="btn-login" ${state.loggingIn ? 'disabled' : ''}>${state.loggingIn ? 'Ingresando…' : 'Ingresar'}</button>
-            `}
+            <h1>No se pudo abrir el panel</h1>
+            <div class="login-error">⚠ ${state.authError || 'Error de autenticación desconocido.'}</div>
+            <p style="font-size:12px; color:var(--text-dim);">
+              Este panel se autentica solo, sin pedir correo ni clave. Revisa que
+              <code>ADMIN_EMAIL</code> / <code>ADMIN_PASSWORD</code> al inicio del script
+              coincidan con una cuenta real de Supabase Auth vinculada en la tabla
+              <code>usuarios</code> con rol <code>admin</code> o <code>supervisor</code>.
+            </p>
           </div>
         </div>
       </div>
@@ -502,11 +484,11 @@
         ${items.map(it => `<div class="nav-item ${state.tab===it.id?'active':''}" data-tab="${it.id}">${it.label}</div>`).join('')}
         <div class="sidebar-footer">
           <div class="user-tag"><b>${state.perfil.nombre}</b>${state.perfil.rol}</div>
-          <button class="btn btn-ghost btn-full" id="btn-logout">Cerrar sesión</button>
         </div>
       </div>
     `;
   }
+
 
   function contentHead(){
     const titles = { resumen:'Resumen', turnos:'Turnos', gastos:'Gastos', quincenal:'Registro fotográfico de carrocería', flota:'Camiones y choferes' };
@@ -848,19 +830,6 @@
   // EVENTOS
   // =====================================================================
   function bindEvents(){
-    const btnLogin = document.getElementById('btn-login');
-    if (btnLogin) btnLogin.addEventListener('click', login);
-    const emailEl = document.getElementById('login_email');
-    if (emailEl) emailEl.addEventListener('input', e => setField('loginForm','email', e.target.value));
-    const passEl = document.getElementById('login_password');
-    if (passEl){
-      passEl.addEventListener('input', e => setField('loginForm','password', e.target.value));
-      passEl.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
-    }
-
-    const btnLogout = document.getElementById('btn-logout');
-    if (btnLogout) btnLogout.addEventListener('click', logout);
-
     document.querySelectorAll('[data-tab]').forEach(el => {
       el.addEventListener('click', () => setState({ tab: el.dataset.tab }));
     });
