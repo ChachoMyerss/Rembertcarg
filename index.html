@@ -606,13 +606,21 @@
     return state.odo_inicio;
   }
 
-  async function iniciarViaje(){
+ async function iniciarViaje(){
+    const f = state.viajeForm;
+    const odoSalida = parseFloat(f.odo_salida);
+    
+    // Validación al hacer clic:
+    if (isNaN(odoSalida) || odoSalida < parseFloat(state.odo_inicio)) {
+      setState({ saveError: "⚠ El odómetro de salida debe ser mayor o igual al inicio de turno." });
+      return;
+    }
+    
     setState({ saving:true, saveError:null });
     try {
-      const f = state.viajeForm;
       const { data, error } = await supabase.from('viajes_bodega').insert({
         turno_id: state.turnoId, hora_salida_bodega: new Date().toISOString(), hora_regreso_centro: null,
-        odometro_salida: parseFloat(f.odo_salida), odometro_regreso: null,
+        odometro_salida: odoSalida, odometro_regreso: null,
         scooters_cargados: parseInt(f.scooters, 10) || 0, baterias_cargadas: parseInt(f.baterias, 10) || 0,
       }).select().single();
       if (error) throw error;
@@ -621,7 +629,6 @@
       setState({ saving:false, saveError: e.message || String(e) });
     }
   }
-
   async function actualizarViaje(){
     setState({ saving:true, saveError:null });
     try {
@@ -642,12 +649,19 @@
     }
   }
 
-  async function finalizarViaje(){
+ async function finalizarViaje(){
     const v = viajeEnCurso();
     if (!v) return;
+    const odoRegreso = parseFloat(state.viajeCierreForm.odo_regreso);
+    
+    // Validación al hacer clic:
+    if (isNaN(odoRegreso) || odoRegreso <= v.odometro_salida) {
+      setState({ saveError: "⚠ El odómetro de llegada debe ser mayor al de salida." });
+      return;
+    }
+    
     setState({ saving:true, saveError:null });
     try {
-      const odoRegreso = parseFloat(state.viajeCierreForm.odo_regreso);
       const { data, error } = await supabase.from('viajes_bodega').update({
         odometro_regreso: odoRegreso, hora_regreso_centro: new Date().toISOString(),
       }).eq('id', v.id).select().single();
@@ -969,21 +983,11 @@
     }).join('');
   }
 
- function viajeFormScreen(){
+function viajeFormScreen(){
     const f = state.viajeForm;
     const esEdicion = !!f.editId;
     const mostrarRegreso = esEdicion && f.odo_regreso !== '';
-    const odoIni = parseFloat(state.odo_inicio);
-    const odoSalida = parseFloat(f.odo_salida);
-    const odoRegreso = f.odo_regreso !== '' ? parseFloat(f.odo_regreso) : null;
-
-    let alertHtml = '';
-    if (!isNaN(odoSalida) && odoSalida < odoIni) alertHtml += `<div class="alert">⚠ El odómetro de salida no puede ser menor al inicio del turno (${Number(odoIni).toLocaleString('es-CL')} km).</div>`;
-    if (odoRegreso !== null && !isNaN(odoSalida) && odoRegreso < odoSalida) alertHtml += `<div class="alert">⚠ El odómetro de llegada no puede ser menor al de salida.</div>`;
-
-    const bloquea = state.saving || f.odo_salida === '' || (!isNaN(odoSalida) && odoSalida < odoIni) ||
-      (mostrarRegreso && (f.odo_regreso === '' || odoRegreso < odoSalida));
-
+    
     return `
       <div class="section">
         <span class="link-back" data-back="active">‹ Volver</span>
@@ -993,24 +997,16 @@
         <label>Baterías cargadas</label><input type="text" inputmode="numeric" id="v_baterias" value="${f.baterias}">
         <label>Odómetro al SALIR de bodega (km)</label><input type="text" inputmode="decimal" id="v_odo_salida" value="${f.odo_salida}">
         ${mostrarRegreso ? `<label>Odómetro al LLEGAR a bodega (km)</label><input type="text" inputmode="decimal" id="v_odo_regreso" value="${f.odo_regreso}">` : ''}
-        ${alertHtml}
-        <button class="btn btn-primary" id="btn-guardar-viaje" ${bloquea ? 'disabled' : ''}>${state.saving ? 'Guardando…' : (esEdicion ? 'Guardar cambios' : 'Iniciar Viaje')}</button>
+        
+        <button class="btn btn-primary" style="margin-top:14px;" id="btn-guardar-viaje" ${state.saving ? 'disabled' : ''}>${state.saving ? 'Guardando…' : (esEdicion ? 'Guardar cambios' : 'Iniciar Viaje')}</button>
       </div>
     `;
   }
-  function viajeCierreScreen(){
+ function viajeCierreScreen(){
     const v = viajeEnCurso();
-    if (!v){
-      return `<div class="section"><div class="alert">No hay ningún viaje en curso.</div><span class="link-back" data-back="active">‹ Volver</span></div>`;
-    }
+    if (!v) return `<div class="section"><div class="alert">No hay ningún viaje en curso.</div><span class="link-back" data-back="active">‹ Volver</span></div>`;
     const f = state.viajeCierreForm;
-    const odoRegreso = f.odo_regreso !== '' ? parseFloat(f.odo_regreso) : null;
-    let alertHtml = '';
     
-    // Validamos lógicamente que la llegada no sea menor que la salida
-    if (odoRegreso !== null && odoRegreso < v.odometro_salida) alertHtml = `<div class="alert">⚠ El odómetro de llegada no puede ser menor a la salida de bodega (${Number(v.odometro_salida).toLocaleString('es-CL')} km).</div>`;
-    const bloquea = state.saving || f.odo_regreso === '' || (odoRegreso !== null && odoRegreso < v.odometro_salida);
-
     return `
       <div class="section">
         <span class="link-back" data-back="active">‹ Volver</span>
@@ -1020,12 +1016,11 @@
         <div class="gauge-cluster"><div class="gauge"><div class="gauge-label">Odómetro al SALIR de bodega</div><div class="gauge-value">${Number(v.odometro_salida).toLocaleString('es-CL')}</div></div></div>
         <label>Odómetro al LLEGAR a bodega (km)</label>
         <input type="text" inputmode="decimal" id="vc_odo_regreso" value="${f.odo_regreso}" placeholder="${v.odometro_salida}">
-        ${alertHtml}
-        <button class="btn btn-primary" id="btn-finalizar-viaje" ${bloquea ? 'disabled' : ''}>${state.saving ? 'Guardando…' : 'Finalizar Viaje'}</button>
+        
+        <button class="btn btn-primary" style="margin-top:14px;" id="btn-finalizar-viaje" ${state.saving ? 'disabled' : ''}>${state.saving ? 'Guardando…' : 'Finalizar Viaje'}</button>
       </div>
     `;
   }
-
   function gastoFormScreen(){
     const f = state.gastoForm;
     const v = state.vehiculo;
