@@ -354,7 +354,6 @@
     scheduleRender();
   }
   
-  // Utilidad para forzar el renderizado de sub-objetos (solo cuando es visualmente necesario)
   function setStateField(obj, key, value){
     state = Object.assign({}, state, { [obj]: Object.assign({}, state[obj], { [key]: value }) });
     scheduleRender();
@@ -373,7 +372,7 @@
     return v;
   }
 
-  // OPTIMIZACIÓN DE RENDIMIENTO: Escribe silenciosamente sin redibujar la pantalla.
+  // ESCRITURA FLUIDA SIN REDIBUJAR
   function bindNumericInput(id, onChange, allowDecimal){
     const el = document.getElementById(id);
     if (!el) return;
@@ -534,7 +533,6 @@
     }).select().single();
     if (cErr) throw cErr;
 
-    // Solo guardamos las respuestas de los ítems que se le mostraron al usuario
     let itemsAProcesar = state.checklistItems;
     if (momento === 'post') {
       itemsAProcesar = itemsAProcesar.filter(i => 
@@ -606,16 +604,16 @@
     return state.odo_inicio;
   }
 
- async function iniciarViaje(){
+  async function iniciarViaje(){
     const f = state.viajeForm;
     const odoSalida = parseFloat(f.odo_salida);
+    const odoIni = parseFloat(state.odo_inicio);
     
-    // Validación al hacer clic:
-    if (isNaN(odoSalida) || odoSalida < parseFloat(state.odo_inicio)) {
-      setState({ saveError: "⚠ El odómetro de salida debe ser mayor o igual al inicio de turno." });
+    if (isNaN(odoSalida) || odoSalida < odoIni) {
+      setState({ saveError: `⚠ El odómetro de salida no puede ser menor al inicio del turno (${Number(odoIni).toLocaleString('es-CL')} km).` });
       return;
     }
-    
+
     setState({ saving:true, saveError:null });
     try {
       const { data, error } = await supabase.from('viajes_bodega').insert({
@@ -629,14 +627,31 @@
       setState({ saving:false, saveError: e.message || String(e) });
     }
   }
+
   async function actualizarViaje(){
+    const f = state.viajeForm;
+    const odoSalida = parseFloat(f.odo_salida);
+    const odoIni = parseFloat(state.odo_inicio);
+    
+    if (isNaN(odoSalida) || odoSalida < odoIni) {
+      setState({ saveError: `⚠ El odómetro de salida no puede ser menor al inicio del turno (${Number(odoIni).toLocaleString('es-CL')} km).` });
+      return;
+    }
+
+    if (f.odo_regreso !== '') {
+      const odoRegreso = parseFloat(f.odo_regreso);
+      if (odoRegreso < odoSalida) {
+        setState({ saveError: `⚠ El odómetro de llegada no puede ser menor al de salida.` });
+        return;
+      }
+    }
+
     setState({ saving:true, saveError:null });
     try {
-      const f = state.viajeForm;
       const patch = {
         scooters_cargados: parseInt(f.scooters, 10) || 0,
         baterias_cargadas: parseInt(f.baterias, 10) || 0,
-        odometro_salida: parseFloat(f.odo_salida),
+        odometro_salida: odoSalida,
       };
       if (f.odo_regreso !== ''){
         patch.odometro_regreso = parseFloat(f.odo_regreso);
@@ -649,17 +664,16 @@
     }
   }
 
- async function finalizarViaje(){
+  async function finalizarViaje(){
     const v = viajeEnCurso();
     if (!v) return;
     const odoRegreso = parseFloat(state.viajeCierreForm.odo_regreso);
-    
-    // Validación al hacer clic:
-    if (isNaN(odoRegreso) || odoRegreso <= v.odometro_salida) {
-      setState({ saveError: "⚠ El odómetro de llegada debe ser mayor al de salida." });
+
+    if (isNaN(odoRegreso) || odoRegreso < v.odometro_salida) {
+      setState({ saveError: `⚠ El odómetro de llegada no puede ser menor a la salida (${Number(v.odometro_salida).toLocaleString('es-CL')} km).` });
       return;
     }
-    
+
     setState({ saving:true, saveError:null });
     try {
       const { data, error } = await supabase.from('viajes_bodega').update({
@@ -813,11 +827,6 @@
   function startReadingsScreen(){
     const v = state.vehiculo;
     const ultimo = state.ultimoOdometro;
-    const odoCheck = evalContinuidad(state.odo_inicio, ultimo);
-    let alertHtml = '';
-    if (odoCheck.status === 'error') alertHtml += `<div class="alert">⚠ El odómetro no puede ser menor al último cierre.</div>`;
-
-    const bloqueaAvance = state.cargandoUltimoOdometro || odoCheck.status === 'error' || state.odo_inicio === '';
 
     return `
       <div class="section">
@@ -838,9 +847,8 @@
         <label>Odómetro de inicio (km)</label>
         <input type="text" inputmode="decimal" id="odo_inicio" value="${state.odo_inicio}">
         ${fotoField('odo_inicio_foto', 'Foto del odómetro', state.odo_inicio_foto)}
-        ${alertHtml}
 
-        <button class="btn btn-primary" id="btn-to-checklist" ${bloqueaAvance ? 'disabled' : ''}>Continuar a Checklist</button>
+        <button class="btn btn-primary" id="btn-to-checklist" ${state.cargandoUltimoOdometro ? 'disabled' : ''}>Continuar a Checklist</button>
       </div>
     `;
   }
@@ -850,7 +858,6 @@
     const fotos = momento === 'pre' ? state.checklist_pre_fotos : state.checklist_post_fotos;
     const comentarios = momento === 'pre' ? state.checklist_pre_comentarios : state.checklist_post_comentarios;
     
-    // FILTRO PARA POST-TURNO: Ocultar niveles y aceites
     let itemsAMostrar = state.checklistItems;
     if (momento === 'post') {
       itemsAMostrar = itemsAMostrar.filter(i => 
@@ -861,9 +868,6 @@
     }
 
     const categorias = [...new Set(itemsAMostrar.map(i => i.categoria))];
-    const todasRespondidas = itemsAMostrar.length > 0 && itemsAMostrar.every(it =>
-      respuestas[it.id] === 'ok' || (respuestas[it.id] === 'nc' && (comentarios[it.id] || '').trim().length > 0)
-    );
 
     return `
       <div class="section">
@@ -894,7 +898,7 @@
           `).join('')}
         `).join('')}
 
-        <button class="btn btn-primary" id="btn-checklist-confirm" style="margin-top:16px;" ${(!todasRespondidas || state.saving) ? 'disabled' : ''}>
+        <button class="btn btn-primary" id="btn-checklist-confirm" style="margin-top:16px;" ${state.saving ? 'disabled' : ''}>
           ${state.saving ? 'Guardando…' : (momento === 'pre' ? 'Iniciar Turno' : 'Confirmar y Cerrar Turno')}
         </button>
       </div>
@@ -983,11 +987,11 @@
     }).join('');
   }
 
-function viajeFormScreen(){
+ function viajeFormScreen(){
     const f = state.viajeForm;
     const esEdicion = !!f.editId;
     const mostrarRegreso = esEdicion && f.odo_regreso !== '';
-    
+
     return `
       <div class="section">
         <span class="link-back" data-back="active">‹ Volver</span>
@@ -1002,11 +1006,12 @@ function viajeFormScreen(){
       </div>
     `;
   }
- function viajeCierreScreen(){
+
+  function viajeCierreScreen(){
     const v = viajeEnCurso();
     if (!v) return `<div class="section"><div class="alert">No hay ningún viaje en curso.</div><span class="link-back" data-back="active">‹ Volver</span></div>`;
     const f = state.viajeCierreForm;
-    
+
     return `
       <div class="section">
         <span class="link-back" data-back="active">‹ Volver</span>
@@ -1021,17 +1026,10 @@ function viajeFormScreen(){
       </div>
     `;
   }
+
   function gastoFormScreen(){
     const f = state.gastoForm;
-    const v = state.vehiculo;
     const esEdicion = !!f.editId;
-    const litrosExcede = f.tipo === 'combustible' && f.litros !== '' && parseFloat(f.litros) > v.capacidad_estanque_l;
-    const faltaFoto = !f.foto && !f.fotoExistenteUrl;
-    const faltaComentario = f.tipo !== 'combustible' && (!f.comentario || f.comentario.trim() === '');
-    
-    const bloquea = state.saving || f.monto === '' || faltaFoto ||
-      (f.tipo === 'combustible' && (f.litros === '' || f.odo === '' || litrosExcede)) ||
-      (f.tipo !== 'combustible' && faltaComentario);
 
     return `
       <div class="section">
@@ -1047,14 +1045,13 @@ function viajeFormScreen(){
         ${f.tipo === 'combustible' ? `
           <label>Litros cargados *</label><input type="text" inputmode="decimal" id="g_litros" value="${f.litros}">
           <label>Odómetro al cargar (km) *</label><input type="text" inputmode="decimal" id="g_odo" value="${f.odo}">
-          ${litrosExcede ? `<div class="alert">⚠ ${f.litros} L excede la capacidad del estanque (${v.capacidad_estanque_l} L).</div>` : ''}
         ` : `
           <label>Detalle del gasto *</label>
           <textarea id="g_comentario" placeholder="Especifica en qué se gastó...">${f.comentario || ''}</textarea>
         `}
         
         ${fotoField('g_foto', 'Foto de la boleta *', f.foto, f.fotoExistenteUrl)}
-        <button class="btn btn-primary" id="btn-revisar-gasto" ${bloquea ? 'disabled' : ''}>Revisar y Confirmar</button>
+        <button class="btn btn-primary" style="margin-top:14px;" id="btn-revisar-gasto" ${state.saving ? 'disabled' : ''}>Revisar y Confirmar</button>
       </div>
     `;
   }
@@ -1088,20 +1085,17 @@ function viajeFormScreen(){
 
   function closeReadingsScreen(){
     const odoIni = parseFloat(state.odo_inicio);
-    const odoFinNum = parseFloat(state.odo_fin);
-    let alertHtml = '';
-    if (!isNaN(odoFinNum) && odoFinNum <= odoIni) alertHtml += `<div class="alert">⚠ El odómetro final debe ser mayor al de inicio.</div>`;
-    const bloquea = state.odo_fin === '' || odoFinNum <= odoIni;
 
     return `
       <div class="section">
         <span class="link-back" data-back="active">‹ Volver</span>
         <div class="eyebrow" style="margin-bottom:4px;">Cierre de turno</div>
         <h2 style="font-size:17px; margin-bottom:14px;">${state.vehiculo.patente} — Lectura final</h2>
+        ${saveErrorHtml()}
         <label>Odómetro final (km)</label><input type="text" inputmode="decimal" id="odo_fin" value="${state.odo_fin}" placeholder="${odoIni}">
         ${fotoField('odo_fin_foto', 'Foto del odómetro', state.odo_fin_foto)}
-        ${alertHtml}
-        <button class="btn btn-primary" id="btn-to-checklist-post" ${bloquea ? 'disabled' : ''}>Continuar a Checklist</button>
+        
+        <button class="btn btn-primary" style="margin-top:14px;" id="btn-to-checklist-post">Continuar a Checklist</button>
       </div>
     `;
   }
@@ -1138,7 +1132,7 @@ function viajeFormScreen(){
     const backEl = document.querySelector('[data-back]');
     if (backEl) backEl.addEventListener('click', () => setState({ screen: backEl.dataset.back, saveError:null }));
 
-    // AHORA LAS CASILLAS NO PARPADEAN
+    // ESCRITURA SILENCIOSA (Evita parpadeos)
     bindNumericInput('odo_inicio', v => { state.odo_inicio = v; }, true);
     bindNumericInput('odo_fin', v => { state.odo_fin = v; }, true);
     bindNumericInput('v_scooters', v => { state.viajeForm.scooters = v; }, false);
@@ -1150,13 +1144,19 @@ function viajeFormScreen(){
     bindNumericInput('g_litros', v => { state.gastoForm.litros = v; }, true);
     bindNumericInput('g_odo', v => { state.gastoForm.odo = v; }, true);
     
-    // Este necesita actualizar el panel para mostrar u ocultar los litros
     const gTipo = document.getElementById('g_tipo');
     if (gTipo) gTipo.addEventListener('change', e => setStateField('gastoForm','tipo', e.target.value));
 
-    // COMENTARIO DE GASTO EN TIEMPO REAL
     const gComentario = document.getElementById('g_comentario');
     if (gComentario) gComentario.addEventListener('input', e => { state.gastoForm.comentario = e.target.value; });
+
+    // MAGIA DE UX: Ocultar el mensaje rojo automáticamente al empezar a corregir el número
+    document.querySelectorAll('input, textarea').forEach(el => {
+      el.addEventListener('input', () => {
+        const errEl = document.querySelector('.save-error');
+        if (errEl) errEl.style.display = 'none';
+      });
+    });
 
     bindFileInput('odo_inicio_foto', file => setState({ odo_inicio_foto: file }));
     bindFileInput('odo_fin_foto', file => setState({ odo_fin_foto: file }));
@@ -1175,8 +1175,17 @@ function viajeFormScreen(){
     const btnGQ = document.getElementById('btn-guardar-quincenal');
     if (btnGQ) btnGQ.addEventListener('click', guardarQuincenal);
 
+    // VALIDACIÓN AL HACER CLIC EN BOTONES
     const btnToChecklist = document.getElementById('btn-to-checklist');
-    if (btnToChecklist) btnToChecklist.addEventListener('click', () => setState({ screen:'checklist-pre', saveError:null }));
+    if (btnToChecklist) btnToChecklist.addEventListener('click', () => {
+      if (!state.odo_inicio) { setState({ saveError: "Por favor ingresa el odómetro inicial." }); return; }
+      const odoCheck = evalContinuidad(state.odo_inicio, state.ultimoOdometro);
+      if (odoCheck.status === 'error') {
+        setState({ saveError: "El odómetro no puede ser menor al del turno anterior." });
+        return;
+      }
+      setState({ screen:'checklist-pre', saveError:null });
+    });
 
     document.querySelectorAll('[data-item]').forEach(el => {
       el.addEventListener('click', () => {
@@ -1189,7 +1198,6 @@ function viajeFormScreen(){
     document.querySelectorAll('textarea[data-comentario]').forEach(el => {
       el.addEventListener('input', e => {
         const key = e.target.dataset.momento === 'pre' ? 'checklist_pre_comentarios' : 'checklist_post_comentarios';
-        // AHORA LA CASILLA DE COMENTARIOS NO PARPADEA
         state[key][e.target.dataset.comentario] = e.target.value;
       });
     });
@@ -1211,7 +1219,21 @@ function viajeFormScreen(){
 
     const btnChecklistConfirm = document.getElementById('btn-checklist-confirm');
     if (btnChecklistConfirm) btnChecklistConfirm.addEventListener('click', () => {
-      if (state.screen === 'checklist-pre') confirmarChecklistPre();
+      const momento = state.screen === 'checklist-pre' ? 'pre' : 'post';
+      const respuestas = momento === 'pre' ? state.checklist_pre : state.checklist_post;
+      const comentarios = momento === 'pre' ? state.checklist_pre_comentarios : state.checklist_post_comentarios;
+      
+      let itemsAProcesar = state.checklistItems;
+      if (momento === 'post') {
+        itemsAProcesar = itemsAProcesar.filter(i => !i.nombre.toLowerCase().includes('aceite') && !i.nombre.toLowerCase().includes('refrigerante') && !i.nombre.toLowerCase().includes('agua'));
+      }
+      
+      const todasRespondidas = itemsAProcesar.length > 0 && itemsAProcesar.every(it => respuestas[it.id] === 'ok' || (respuestas[it.id] === 'nc' && (comentarios[it.id] || '').trim().length > 0));
+      if (!todasRespondidas) {
+        setState({ saveError: "Debes completar todo el checklist (y detallar si hay algún NC)." });
+        return;
+      }
+      if (momento === 'pre') confirmarChecklistPre();
       else confirmarChecklistPost();
     });
 
@@ -1220,6 +1242,7 @@ function viajeFormScreen(){
       screen:'viaje-form', saveError:null,
       viajeForm:{ scooters:'', baterias:'', odo_salida: odoSugeridoNuevoViaje(), odo_regreso:'', editId:null }
     }));
+    
     const btnGuardarViaje = document.getElementById('btn-guardar-viaje');
     if (btnGuardarViaje) btnGuardarViaje.addEventListener('click', () => {
       if (state.viajeForm.editId) actualizarViaje(); else iniciarViaje();
@@ -1229,6 +1252,7 @@ function viajeFormScreen(){
     if (btnFinalizarViajeActivo) btnFinalizarViajeActivo.addEventListener('click', () => setState({
       screen:'viaje-cerrar', saveError:null, viajeCierreForm:{ odo_regreso:'' }
     }));
+    
     const btnFinalizarViaje = document.getElementById('btn-finalizar-viaje');
     if (btnFinalizarViaje) btnFinalizarViaje.addEventListener('click', finalizarViaje);
 
@@ -1254,8 +1278,19 @@ function viajeFormScreen(){
       screen:'gasto-form', saveError:null,
       gastoForm:{ tipo:'combustible', monto:'', litros:'', odo:'', foto:null, comentario:'', editId:null, fotoExistenteUrl:null }
     }));
+    
     const btnRevisarGasto = document.getElementById('btn-revisar-gasto');
-    if (btnRevisarGasto) btnRevisarGasto.addEventListener('click', () => setState({ screen:'gasto-confirm', saveError:null }));
+    if (btnRevisarGasto) btnRevisarGasto.addEventListener('click', () => {
+      const f = state.gastoForm;
+      const v = state.vehiculo;
+      if (!f.monto) { setState({saveError: "Ingresa el monto."}); return; }
+      if (!f.foto && !f.fotoExistenteUrl) { setState({saveError: "Adjunta la foto de la boleta."}); return; }
+      if (f.tipo === 'combustible' && (!f.litros || !f.odo)) { setState({saveError: "Ingresa los litros y el odómetro al cargar."}); return; }
+      if (f.tipo === 'combustible' && parseFloat(f.litros) > v.capacidad_estanque_l) { setState({saveError: `Excede la capacidad del estanque (${v.capacidad_estanque_l} L).`}); return; }
+      if (f.tipo !== 'combustible' && (!f.comentario || f.comentario.trim() === '')) { setState({saveError: "Ingresa el detalle del gasto."}); return; }
+      setState({ screen:'gasto-confirm', saveError:null });
+    });
+    
     const btnConfirmarGasto = document.getElementById('btn-confirmar-gasto');
     if (btnConfirmarGasto) btnConfirmarGasto.addEventListener('click', () => {
       if (state.gastoForm.editId) actualizarGasto(); else guardarGasto();
@@ -1282,9 +1317,16 @@ function viajeFormScreen(){
     if (btnCerrar) btnCerrar.addEventListener('click', () => setState({ screen:'close-readings', odo_fin:'', odo_fin_foto:null, checklist_post:{}, checklist_post_fotos:{}, checklist_post_comentarios:{} }));
 
     const btnToChecklistPost = document.getElementById('btn-to-checklist-post');
-    if (btnToChecklistPost) btnToChecklistPost.addEventListener('click', () => setState({ screen:'checklist-post', saveError:null }));
+    if (btnToChecklistPost) btnToChecklistPost.addEventListener('click', () => {
+      const odoIni = parseFloat(state.odo_inicio);
+      const odoFinNum = parseFloat(state.odo_fin);
+      if (isNaN(odoFinNum) || odoFinNum <= odoIni) {
+        setState({ saveError: "El odómetro final debe ser mayor al inicial." });
+        return;
+      }
+      setState({ screen:'checklist-post', saveError:null });
+    });
 
-    // LIMPIEZA TOTAL DE MEMORIA AL INICIAR NUEVO TURNO
     const btnNuevo = document.getElementById('btn-nuevo-turno');
     if (btnNuevo) btnNuevo.addEventListener('click', () => {
       setState({ 
@@ -1336,3 +1378,5 @@ function viajeFormScreen(){
 
 })();
 </script>
+</body>
+</html>
