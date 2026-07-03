@@ -2,52 +2,50 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Panel de Administración | Flota</title>
+    <title>Dashboard Administrador | Flota</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
+    <script src="config.js"></script> <style>
         body { font-family: 'Inter', sans-serif; background: #0D0F13; color: #E8EAED; padding: 20px; }
-        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .card { background: #1E2128; border: 1px solid #333844; border-radius: 10px; padding: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
-        th { text-align: left; color: #9AA3AF; padding: 10px; border-bottom: 1px solid #333844; }
-        td { padding: 10px; border-bottom: 1px solid #333844; }
-        .status-nc { color: #FFD166; font-weight: bold; }
-        .img-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer; }
+        .card { background: #1E2128; border: 1px solid #333844; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+        h1, h2 { color: #FFB020; font-family: 'Oswald', sans-serif; text-transform: uppercase; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { text-align: left; color: #9AA3AF; padding: 12px; border-bottom: 1px solid #333844; }
+        td { padding: 12px; border-bottom: 1px solid #333844; }
+        .foto-preview { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; }
     </style>
 </head>
 <body>
-    <h1>Panel de Administración</h1>
-    <div class="dashboard-grid">
-        <div class="card">
-            <h2>🚨 Alertas (NC)</h2>
-            <table id="alertas-table">
-                <thead><tr><th>Vehículo</th><th>Ítem</th><th>Comentario</th><th>Foto</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </div>
-        <div class="card">
-            <h2>📊 Historial Reciente</h2>
-            <table id="turnos-table">
-                <thead><tr><th>Patente</th><th>Chofer</th><th>KM Recorridos</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </div>
+    <h1>Dashboard de Gestión</h1>
+    
+    <div class="card">
+        <h2>🚨 Alertas de Inspección (NC)</h2>
+        <table>
+            <thead><tr><th>Vehículo</th><th>Ítem</th><th>Comentario</th><th>Foto</th></tr></thead>
+            <tbody id="alertas-body"></tbody>
+        </table>
     </div>
 
     <script>
-        const supabase = window.supabase.createClient('TU_URL', 'TU_KEY'); // COPIA TUS DATOS DEL INDEX
+        const supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
 
-        async function cargarDatos() {
-            // Cargar Alertas (NC)
-            const { data: alertas } = await supabase
+        async function cargarAlertas() {
+            const { data } = await supabase
                 .from('inspeccion_respuestas')
-                .select('*, checklist_items(nombre), checklists_realizados(vehiculos(patente))')
+                .select('comentario, foto_url, checklist_items(nombre), checklists_realizados(vehiculos(patente))')
                 .eq('estado', 'nc');
             
-            // Renderizar tabla...
-            console.log("Alertas cargadas:", alertas);
+            const tbody = document.getElementById('alertas-body');
+            tbody.innerHTML = data.map(al => `
+                <tr>
+                    <td>${al.checklists_realizados.vehiculos.patente}</td>
+                    <td>${al.checklist_items.nombre}</td>
+                    <td>${al.comentario || 'Sin comentario'}</td>
+                    <td>${al.foto_url ? `<img src="${al.foto_url}" class="foto-preview">` : '-'}</td>
+                </tr>
+            `).join('');
         }
-        cargarDatos();
+        
+        cargarAlertas();
     </script>
 </body>
 </html>
