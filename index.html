@@ -1059,12 +1059,10 @@
 
     const btnLoginEl = document.getElementById('btn-login');
     if (btnLoginEl) btnLoginEl.addEventListener('click', login);
-// BORRA ESTAS LÍNEAS EN TU INDEX.HTML
-const loginEmailEl = document.getElementById('login_email');
-if (loginEmailEl) loginEmailEl.addEventListener('input', e => setStateField('loginForm','email', e.target.value));
-const loginPassEl = document.getElementById('login_password');
-if (loginPassEl){
-      loginPassEl.addEventListener('input', e => setStateField('loginForm','password', e.target.value));
+
+
+
+    
       loginPassEl.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
     }
     const btnLogoutEl = document.getElementById('btn-logout');
