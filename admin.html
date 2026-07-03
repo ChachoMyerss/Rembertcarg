@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel de Administración | Flota</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #0D0F13; color: #E8EAED; padding: 20px; }
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .card { background: #1E2128; border: 1px solid #333844; border-radius: 10px; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        th { text-align: left; color: #9AA3AF; padding: 10px; border-bottom: 1px solid #333844; }
+        td { padding: 10px; border-bottom: 1px solid #333844; }
+        .status-nc { color: #FFD166; font-weight: bold; }
+        .img-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Panel de Administración</h1>
+    <div class="dashboard-grid">
+        <div class="card">
+            <h2>🚨 Alertas (NC)</h2>
+            <table id="alertas-table">
+                <thead><tr><th>Vehículo</th><th>Ítem</th><th>Comentario</th><th>Foto</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div class="card">
+            <h2>📊 Historial Reciente</h2>
+            <table id="turnos-table">
+                <thead><tr><th>Patente</th><th>Chofer</th><th>KM Recorridos</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const supabase = window.supabase.createClient('TU_URL', 'TU_KEY'); // COPIA TUS DATOS DEL INDEX
+
+        async function cargarDatos() {
+            // Cargar Alertas (NC)
+            const { data: alertas } = await supabase
+                .from('inspeccion_respuestas')
+                .select('*, checklist_items(nombre), checklists_realizados(vehiculos(patente))')
+                .eq('estado', 'nc');
+            
+            // Renderizar tabla...
+            console.log("Alertas cargadas:", alertas);
+        }
+        cargarDatos();
+    </script>
+</body>
+</html>
