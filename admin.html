@@ -194,7 +194,6 @@
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
 
-  // Mapeamos 'nc' como el estado de alerta
   const ESTADOS_NO_OK = ['nc', 'observacion', 'falla'];
   function esNoOk(estado){ return ESTADOS_NO_OK.includes(String(estado).toLowerCase()); }
 
@@ -207,7 +206,6 @@
     accessDenied: false,
     configError: !supabase,
 
-    loginForm: { email:'', password:'' },
     loginError: null,
     loggingIn: false,
 
@@ -219,7 +217,7 @@
 
     kpis: null,
     kpisLoading: false,
-    alertasNC: [], // Aquí listaremos las fallas NC reales del checklist diario
+    alertasNC: [],
     resumenLoading: false,
 
     turnos: [],
@@ -239,7 +237,7 @@
   };
 
   function setState(patch){ state = Object.assign({}, state, patch); scheduleRender(); }
-  function setField(obj, key, value){ state = Object.assign({}, state, { [obj]: Object.assign({}, state[obj], { [key]: value }) }); scheduleRender(); }
+  function setField(obj, key, value){ state = Object.assign({}, state, { [obj]: Object.assign({}, state[obj], { [key]: value }) }); } // Corrección: quitamos scheduleRender() aquí para que no borre el foco al escribir
 
   let renderScheduled = false;
   function scheduleRender(){
@@ -267,7 +265,6 @@
   const ESTADO_TURNO_BADGE = {
     abierto: '<span class="badge badge-ok">● Abierto</span>',
     cerrado: '<span class="badge badge-dim">Cerrado</span>',
-    con_discrepancia: '<span class="badge badge-warn">△ Discrepancia</span>',
   };
 
   // =====================================================================
@@ -291,7 +288,10 @@
         .from('usuarios').select('id, nombre, rol').eq('auth_user_id', authData.user.id).maybeSingle();
       if (perfilErr) throw perfilErr;
       if (!perfil){ setState({ booting:false, accessDenied:true, loginError:'Tu cuenta no está vinculada a un perfil.' }); return; }
-      if (perfil.rol !== 'admin' && perfil.rol !== 'supervisor'){
+      
+      // Corrección: Hacemos la validación tolerante a mayúsculas
+      const uRol = String(perfil.rol).toLowerCase();
+      if (uRol !== 'admin' && uRol !== 'supervisor'){
         setState({ booting:false, accessDenied:true, perfil });
         return;
       }
@@ -304,9 +304,15 @@
   }
 
   async function login(){
+    const emailEl = document.getElementById('login_email');
+    const passEl = document.getElementById('login_password');
+    if (!emailEl || !passEl) return;
+
     setState({ loggingIn:true, loginError:null });
-    const { email, password } = state.loginForm;
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ 
+      email: emailEl.value, 
+      password: passEl.value 
+    });
     if (error){ setState({ loggingIn:false, loginError: error.message }); return; }
     setState({ loggingIn:false });
     await cargarPerfil();
@@ -316,7 +322,7 @@
     await supabase.auth.signOut();
     state = {
       booting:false, perfil:null, accessDenied:false, configError:!supabase,
-      loginForm:{ email:'', password:'' }, loginError:null, loggingIn:false,
+      loginError:null, loggingIn:false,
       tab:'resumen', vehiculos:[], choferes:[], dataBoot:false,
       kpis:null, kpisLoading:false, alertasNC:[], resumenLoading:false,
       turnos:[], turnosLoading:false, turnosFiltro:{ vehiculo:'', estado:'', desde:'', hasta:'' },
@@ -340,13 +346,11 @@
   async function cargarResumen(){
     setState({ resumenLoading:true });
     try {
-      // 1. Contamos turnos activos
       const [abiertos, totalNC] = await Promise.all([
         supabase.from('turnos').select('id', { count:'exact', head:true }).eq('estado','abierto'),
         supabase.from('inspeccion_respuestas').select('id', { count:'exact', head:true }).in('estado', ['nc', 'NC'])
       ]);
 
-      // 2. Traemos las respuestas de inspección que tienen alerta NC de forma directa y limpia
       const { data: fallas } = await supabase
         .from('inspeccion_respuestas')
         .select('*, checklist_items(nombre), checklists_realizados(turno_id, vehiculos(patente), usuarios(nombre))')
@@ -358,7 +362,7 @@
         resumenLoading:false,
         kpis: {
           abiertos: abiertos.count || 0,
-          discrepancia: totalNC.count || 0, // Usamos este KPI para ver cuántos NC hay en total
+          discrepancia: totalNC.count || 0,
           sospechosos: 0
         },
         alertasNC: fallas || []
@@ -436,7 +440,16 @@
   // =====================================================================
   function render(){
     const app = document.getElementById('app');
+    // Guardamos los valores que el usuario tenga escritos en pantalla antes de destruir el HTML
+    const prevEmail = document.getElementById('login_email')?.value;
+    const prevPass = document.getElementById('login_password')?.value;
+
     app.innerHTML = screenRoot();
+
+    // Restauramos los valores si es que volvió a aparecer la pantalla de login
+    if(document.getElementById('login_email') && prevEmail != null) document.getElementById('login_email').value = prevEmail;
+    if(document.getElementById('login_password') && prevPass != null) document.getElementById('login_password').value = prevPass;
+
     bindEvents();
   }
 
@@ -473,13 +486,13 @@
             <h1>Acceso de supervisión</h1>
             ${state.loginError ? `<div class="login-error">⚠ ${state.loginError}</div>` : ''}
             ${denegado ? `
-              <div class="login-error">Tu cuenta no tiene permisos administrativos.</div>
+              <div class="login-error">Tu cuenta (${state.perfil.nombre}) está registrada con el rol "${state.perfil.rol}", el cual no cuenta con permisos administrativos en la tabla "usuarios".</div>
               <button class="btn btn-ghost btn-full" id="btn-logout">Cerrar sesión</button>
             ` : `
               <label>Correo</label>
-              <input type="email" id="login_email" value="${state.loginForm.email}">
+              <input type="email" id="login_email" placeholder="admin@tuempresa.com">
               <label>Contraseña</label>
-              <input type="password" id="login_password" value="${state.loginForm.password}">
+              <input type="password" id="login_password">
               <button class="btn btn-primary btn-full" id="btn-login" ${state.loggingIn ? 'disabled' : ''}>Ingresar</button>
             `}
           </div>
@@ -829,7 +842,7 @@
 
           <div class="drawer-section">
             <div class="drawer-section-title">Gastos del turno (${d.gastos.length}) — total ${fmtMoney(totalGastos)}</div>
-            ${d.gastos.length === 0 ? `<div class="dim" style="font-size:13px;">Sin gastos cargados en este turno.</div>` : d.gastos.map(g => `
+            ${d.gastos.length === 0 ? `<div class="dim" style="font-size:13px;">Sin gastos cargados in este turno.</div>` : d.gastos.map(g => `
               <div class="log-item">
                 <div class="log-top">
                   <span>${TIPO_GASTO_LABEL[g.tipo] || g.tipo}</span>
@@ -851,11 +864,9 @@
   function bindEvents(){
     const btnLogin = document.getElementById('btn-login');
     if (btnLogin) btnLogin.addEventListener('click', login);
-    const emailEl = document.getElementById('login_email');
-    if (emailEl) emailEl.addEventListener('input', e => setField('loginForm','email', e.target.value));
+    
     const passEl = document.getElementById('login_password');
     if (passEl){
-      passEl.addEventListener('input', e => setField('loginForm','password', e.target.value));
       passEl.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
     }
 
@@ -889,10 +900,10 @@
     const btnFG = document.getElementById('btn-filtrar-gastos');
     if (btnFG) btnFG.addEventListener('click', cargarGastos);
 
-    // Clic en filas o botones con data-detalle → abren el Drawer lateral
+    // Clic en filas o botones con data-detalle
     document.querySelectorAll('[data-detalle]').forEach(el => {
       el.addEventListener('click', (e) => {
-        e.stopPropagation(); // Evita conflictos de clics encimados
+        e.stopPropagation();
         abrirDetalleTurno(el.dataset.detalle);
       });
     });
@@ -907,5 +918,3 @@
   boot();
 })();
 </script>
-</body>
-</html>
