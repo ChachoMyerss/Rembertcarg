@@ -15,16 +15,30 @@
 
 <style>
   :root{
-    --bg:#14161A; --surface:#1E2128; --surface-alt:#262A33; --border:#333844;
-    --text:#E8EAED; --text-dim:#9AA3AF; --accent:#FFB020; --accent-dim:#3A2E14;
-    --success:#3DDC84; --success-dim:#173327; --danger:#FF5C5C; --danger-dim:#3A1B1B;
-    --warning:#FFD166; --warning-dim:#3A2F13;
+    --bg:#14161A;
+    --surface:#1E2128;
+    --surface-alt:#262A33;
+    --border:#333844;
+    --text:#E8EAED;
+    --text-dim:#9AA3AF;
+    --accent:#FFB020;
+    --accent-dim:#3A2E14;
+    --success:#3DDC84;
+    --success-dim:#173327;
+    --danger:#FF5C5C;
+    --danger-dim:#3A1B1B;
+    --warning:#FFD166;
+    --warning-dim:#3A2F13;
   }
   *{box-sizing:border-box;}
-  html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif;}
+  html,body{margin:0; padding:0; background:var(--bg);}
+  body{color:var(--text); font-family:'Inter',sans-serif;}
   h1,h2,h3{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:0.5px; margin:0;}
   a{color:var(--accent);}
   .eyebrow{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:2.5px; text-transform:uppercase; color:var(--accent); font-weight:600;}
+
+  /* ---------- Shell ---------- */
+  #app{min-height:100vh;}
   .shell{display:flex; min-height:100vh;}
   .sidebar{
     width:220px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--border);
@@ -33,34 +47,71 @@
   .brand{margin-bottom:26px;}
   .brand h1{font-size:17px; margin-top:4px;}
   .nav-item{
-    display:flex; align-items:center; gap:10px; font-family:'Oswald',sans-serif; font-size:13px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;
+    display:flex; align-items:center; gap:10px;
+    font-family:'Oswald',sans-serif; font-size:13px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;
     color:var(--text-dim); padding:11px 12px; border-radius:8px; cursor:pointer; margin-bottom:4px;
   }
   .nav-item:hover{background:var(--surface-alt); color:var(--text);}
   .nav-item.active{background:var(--accent-dim); color:var(--accent);}
+  .sidebar-footer{margin-top:auto; padding-top:16px; border-top:1px solid var(--border);}
+  .user-tag{font-size:12px; color:var(--text-dim); margin-bottom:10px;}
+  .user-tag b{color:var(--text); display:block; font-size:13px;}
   .content{flex:1; padding:28px 32px; max-width:1320px; min-width:0;}
   .content-head{display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:20px; flex-wrap:wrap; gap:12px;}
   .content-head h2{font-size:22px;}
+
+  /* ---------- Botones / inputs ---------- */
   .btn{
     font-family:'Oswald',sans-serif; font-size:13px; font-weight:600; letter-spacing:0.8px; text-transform:uppercase;
-    padding:10px 16px; border-radius:8px; border:none; cursor:pointer;
+    padding:10px 16px; border-radius:8px; border:none; cursor:pointer; transition:transform .08s;
   }
+  .btn:active{transform:scale(0.98);}
   .btn-primary{background:var(--accent); color:#1A1300;}
+  .btn-primary:disabled{background:#4A4330; color:#8A8270; cursor:not-allowed;}
   .btn-ghost{background:transparent; border:1px solid var(--border); color:var(--text);}
+  .btn-full{width:100%;}
+  label{display:block; font-size:12px; color:var(--text-dim); margin-bottom:6px; letter-spacing:0.3px;}
+  input[type=text], input[type=email], input[type=password], input[type=date], select{
+    background:#0D0F13; border:1px solid var(--border); color:var(--text);
+    font-family:'JetBrains Mono',monospace; font-size:14px; padding:9px 12px; border-radius:8px;
+  }
+  select{font-family:'Inter',sans-serif;}
+  input:focus, select:focus{outline:2px solid var(--accent); border-color:transparent;}
   .filters{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; align-items:flex-end;}
-  .filter-field{display:flex; flex-direction:column;}
-  input[type=date], select{ background:#0D0F13; border:1px solid var(--border); color:var(--text); font-family:'JetBrains Mono',monospace; font-size:14px; padding:9px 12px; border-radius:8px;}
+  .filter-field{display:flex; flex-direction:column; gap:0;}
+
+  /* ---------- Cards / KPIs ---------- */
   .card{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px;}
-  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px,1fr)); gap:14px; margin-bottom:24px; }
+  .kpi-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(190px,1fr)); gap:14px; margin-bottom:24px;}
   .kpi{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 18px;}
   .kpi-label{font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin-bottom:6px;}
   .kpi-value{font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:700;}
-  .kpi.ok .kpi-value{color:var(--success);}
   .kpi.warn .kpi-value{color:var(--warning);}
+  .kpi.danger .kpi-value{color:var(--danger);}
+  .kpi.ok .kpi-value{color:var(--success);}
+  .panel-row{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;}
+  @media (max-width: 900px){ .panel-row{grid-template-columns:1fr;} }
+  .panel-title{font-size:13px; font-weight:600; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;}
+
+  /* ---------- Badges ---------- */
+  .badge{
+    display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; letter-spacing:0.4px;
+    padding:4px 9px; border-radius:999px; text-transform:uppercase; white-space:nowrap;
+  }
+  .badge-ok{background:var(--success-dim); color:var(--success);}
+  .badge-warn{background:var(--warning-dim); color:var(--warning);}
+  .badge-danger{background:var(--danger-dim); color:var(--danger);}
+  .badge-dim{background:var(--surface-alt); color:var(--text-dim);}
+
+  /* ---------- Tabla ---------- */
   .table-wrap{background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden;}
   table{width:100%; border-collapse:collapse; font-size:13px;}
-  thead th{ text-align:left; font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim); padding:12px 14px; border-bottom:1px solid var(--border); background:var(--surface-alt); }
+  thead th{
+    text-align:left; font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1px; text-transform:uppercase;
+    color:var(--text-dim); padding:12px 14px; border-bottom:1px solid var(--border); background:var(--surface-alt);
+  }
   tbody td{padding:11px 14px; border-bottom:1px solid var(--border); vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:none;}
   tbody tr.clickable{cursor:pointer;}
   tbody tr.clickable:hover{background:var(--surface-alt);}
   .mono{font-family:'JetBrains Mono',monospace;}
@@ -68,28 +119,55 @@
   .thumb{width:34px; height:34px; object-fit:cover; border-radius:6px; border:1px solid var(--border);}
   .empty-state{text-align:center; padding:40px 10px; color:var(--text-dim); font-size:13px;}
   .load-row{text-align:center; padding:30px; color:var(--text-dim); font-size:13px;}
-  .overlay{position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:20; display:flex; justify-content:flex-end;}
-  .drawer{width:100%; max-width:560px; background:var(--bg); border-left:1px solid var(--border); height:100vh; overflow-y:auto; padding:24px 26px;}
+
+  /* ---------- Drawer detalle turno ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:20;
+    display:flex; justify-content:flex-end;
+  }
+  .drawer{
+    width:100%; max-width:560px; background:var(--bg); border-left:1px solid var(--border);
+    height:100vh; overflow-y:auto; padding:24px 26px;
+  }
   .drawer-head{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px;}
-  .drawer-close{background:var(--surface-alt); border:1px solid var(--border); color:var(--text); width:32px; height:32px; border-radius:8px; cursor:pointer;}
+  .drawer-close{background:var(--surface-alt); border:1px solid var(--border); color:var(--text); width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:15px;}
   .drawer-section{margin-bottom:22px;}
   .drawer-section-title{font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-dim); font-family:'Oswald',sans-serif; margin-bottom:10px;}
   .meta-row{display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border); font-size:13px;}
   .meta-row span:last-child{font-family:'JetBrains Mono',monospace; font-weight:600;}
   .chk-item{background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:12px 14px; margin-bottom:8px;}
   .chk-item-top{display:flex; justify-content:space-between; align-items:center; gap:8px;}
+  .chk-item-name{font-size:13px;}
   .chk-comment{font-size:12px; color:var(--text-dim); margin-top:6px;}
+  .chk-photo-link{display:inline-block; margin-top:8px;}
   .log-item{background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:11px 14px; margin-bottom:8px; font-size:13px;}
-  .log-top{display:flex; justify-content:space-between;}
-  .badge{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:4px 9px; border-radius:999px; text-transform:uppercase;}
-  .badge-ok{background:var(--success-dim); color:var(--success);}
-  .badge-danger{background:var(--danger-dim); color:var(--danger);}
-  .badge-dim{background:var(--surface-alt); color:var(--text-dim);}
+  .log-item .log-top{display:flex; justify-content:space-between;}
+  .log-item .dim{font-size:12px;}
+  .odo-photos{display:flex; gap:10px; margin-top:8px;}
+  .odo-photos img{width:90px; height:90px; object-fit:cover; border-radius:8px; border:1px solid var(--border);}
+
+  /* ---------- Galería quincenal ---------- */
   .quincenal-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:16px;}
   .quincenal-card{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px;}
-  .quincenal-photos{display:grid; grid-template-columns:repeat(auto-fill, minmax(56px,1fr)); gap:6px; margin-top:6px;}
+  .quincenal-card .vp{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:15px;}
+  .quincenal-card .fecha{font-size:12px; color:var(--text-dim); margin-bottom:10px;}
+  .quincenal-cat{font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin:10px 0 6px;}
+  .quincenal-photos{display:grid; grid-template-columns:repeat(auto-fill, minmax(56px,1fr)); gap:6px;}
   .quincenal-photos img{width:100%; height:56px; object-fit:cover; border-radius:6px; border:1px solid var(--border);}
-  .panel-row{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;}
+
+  .spinner{
+    width:26px; height:26px; border-radius:50%; border:3px solid var(--border); border-top-color:var(--accent);
+    animation:spin .8s linear infinite; margin:0 auto 10px;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  @media (max-width: 760px){
+    .shell{flex-direction:column;}
+    .sidebar{width:100%; height:auto; position:relative; flex-direction:row; overflow-x:auto; align-items:center;}
+    .brand{margin-bottom:0; margin-right:16px;}
+    .sidebar-footer{margin-top:0; margin-left:auto; border-top:none; padding-top:0;}
+    .content{padding:20px;}
+  }
 </style>
 </head>
 <body>
@@ -97,31 +175,81 @@
 
 <script>
 (function(){
+
+  // =====================================================================
+  // CONFIGURACIÓN DE SUPABASE
+  // =====================================================================
   const SUPABASE_URL = 'https://jxjevmykipkxdfdczznt.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4amV2bXlraXBreGRmZGN6em50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MzA4MzQsImV4cCI6MjA5NzQwNjgzNH0.zJbYDqJi1YcbbxHMz6DFXdMxWhF4k_WxPcuj4dXmeX0';
 
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // Mapeo tolerante para estados de alerta (soporta 'nc' de terreno)
   const ESTADOS_NO_OK = ['nc', 'observacion', 'falla'];
   function esNoOk(estado){ return ESTADOS_NO_OK.includes(String(estado).toLowerCase()); }
 
+  // =====================================================================
+  // ESTADO ORIGINAL
+  // =====================================================================
   let state = {
-    tab: 'resumen', vehiculos: [], choferes: [], dataBoot: false,
-    kpis: null, alertasNC: [], resumenLoading: false,
-    turnos: [], turnosLoading: false, turnosFiltro: { vehiculo:'', estado:'', desde:'', hasta:'' },
-    gastos: [], gastosLoading: false, gastosFiltro: { vehiculo:'', tipo:'' },
-    quincenal: [], quincenalLoading: false,
-    detalleTurnoId: null, detalle: null, detalleLoading: false
+    tab: 'resumen',
+
+    vehiculos: [],
+    choferes: [],
+    dataBoot: false,
+
+    kpis: null,
+    kpisLoading: false,
+    alertasDiscrepancia: [],
+    alertasSospechosos: [],
+    alertasNC: [], // Historial de fallas críticas directo
+    resumenLoading: false,
+
+    turnos: [],
+    turnosLoading: false,
+    turnosFiltro: { vehiculo:'', estado:'', desde:'', hasta:'' },
+
+    gastos: [],
+    gastosLoading: false,
+    gastosFiltro: { vehiculo:'', tipo:'', soloSospechosos:false },
+
+    quincenal: [],
+    quincenalLoading: false,
+
+    detalleTurnoId: null,
+    detalle: null,
+    detalleLoading: false,
   };
 
   function setState(patch){ state = Object.assign({}, state, patch); render(); }
   function setField(obj, key, value){ state = Object.assign({}, state, { [obj]: Object.assign({}, state[obj], { [key]: value }) }); }
 
+  // =====================================================================
+  // FORMATO
+  // =====================================================================
   function fmtNum(n){ return Number(n||0).toLocaleString('es-CL'); }
   function fmtMoney(n){ return '$' + Number(n||0).toLocaleString('es-CL'); }
-  function fmtFecha(iso){ if (!iso) return '—'; const d = new Date(iso); return d.toLocaleDateString('es-CL') + ' ' + d.toLocaleTimeString('es-CL', {hour:'2-digit', minute:'2-digit'}); }
-  function fmtFechaCorta(iso){ if (!iso) return '—'; return new Date(iso).toLocaleDateString('es-CL'); }
+  function fmtFecha(iso){
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-CL', { day:'2-digit', month:'2-digit', year:'numeric' }) + ' ' +
+           d.toLocaleTimeString('es-CL', { hour:'2-digit', minute:'2-digit' });
+  }
+  function fmtFechaCorta(iso){
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('es-CL', { day:'2-digit', month:'2-digit', year:'numeric' });
+  }
+  const TIPO_GASTO_LABEL = { combustible:'Combustible', peaje:'Peaje', mantencion:'Mantención', neumaticos:'Neumáticos', otro:'Otro' };
+  const ESTADO_TURNO_BADGE = {
+    abierto: '<span class="badge badge-ok">● Abierto</span>',
+    cerrado: '<span class="badge badge-dim">Cerrado</span>',
+    con_discrepancia: '<span class="badge badge-warn">△ Discrepancia</span>',
+  };
 
-  async function initAdminDirecto(){
+  // =====================================================================
+  // CARGA DE DATOS DIRECTA (SIN LOGIN)
+  // =====================================================================
+  async function inicializarPanelDirecto(){
     const [{ data: vehiculos }, { data: choferes }] = await Promise.all([
       supabase.from('vehiculos').select('*').order('patente'),
       supabase.from('usuarios').select('*').eq('rol', 'chofer').order('nombre'),
@@ -129,34 +257,45 @@
     state.vehiculos = vehiculos || [];
     state.choferes = choferes || [];
     state.dataBoot = true;
+    
     cargarResumen();
   }
 
   async function cargarResumen(){
     setState({ resumenLoading:true });
     try {
-      const [abiertos, totalNC] = await Promise.all([
+      const [abiertos, discrepancia, sospechosos, discrepanciaLista, sospechososLista, fallasNC] = await Promise.all([
         supabase.from('turnos').select('id', { count:'exact', head:true }).eq('estado','abierto'),
-        supabase.from('inspeccion_respuestas').select('id', { count:'exact', head:true }).in('estado', ['nc', 'NC'])
+        supabase.from('turnos').select('id', { count:'exact', head:true }).eq('estado','con_discrepancia'),
+        supabase.from('gastos').select('id', { count:'exact', head:true }).eq('es_sospechoso', true).eq('aprobado', false),
+        supabase.from('turnos').select('*, usuarios(nombre), vehiculos(patente)').eq('estado','con_discrepancia').order('fecha_inicio',{ascending:false}).limit(6),
+        supabase.from('gastos').select('*, vehiculos(patente)').eq('es_sospechoso', true).eq('aprobado', false).order('fecha',{ascending:false}).limit(6),
+        supabase.from('inspeccion_respuestas').select('*, checklist_items(nombre), checklists_realizados(turno_id, vehiculos(patente), usuarios(nombre))').in('estado', ['nc', 'NC', 'falla']).order('id', { ascending: false }).limit(6)
       ]);
-      const { data: fallas } = await supabase
-        .from('inspeccion_respuestas').select('*, checklist_items(nombre), checklists_realizados(turno_id, vehiculos(patente), usuarios(nombre))')
-        .in('estado', ['nc', 'NC']).order('id', { ascending: false }).limit(10);
-
       setState({
         resumenLoading:false,
-        kpis: { abiertos: abiertos.count || 0, discrepancy: totalNC.count || 0 },
-        alertasNC: fallas || []
+        kpis: {
+          abiertos: abiertos.count || 0,
+          discrepancia: discrepancia.count || 0,
+          sospechosos: sospechosos.count || 0,
+        },
+        alertasDiscrepancia: discrepanciaLista.data || [],
+        alertasSospechosos: sospechososLista.data || [],
+        alertasNC: fallasNC.data || []
       });
-    } catch(e){ setState({ resumenLoading:false }); }
+    } catch(e){
+      setState({ resumenLoading:false });
+    }
   }
 
   async function cargarTurnos(){
     setState({ turnosLoading:true });
     const f = state.turnosFiltro;
-    let q = supabase.from('turnos').select('*, usuarios(nombre), vehiculos(patente,marca,modelo)').order('fecha_inicio',{ascending:false});
+    let q = supabase.from('turnos').select('*, usuarios(nombre), vehiculos(patente,marca,modelo)').order('fecha_inicio',{ascending:false}).limit(200);
     if (f.vehiculo) q = q.eq('vehiculo_id', f.vehiculo);
     if (f.estado) q = q.eq('estado', f.estado);
+    if (f.desde) q = q.gte('fecha_inicio', f.desde);
+    if (f.hasta) q = q.lte('fecha_inicio', f.hasta + 'T23:59:59');
     const { data } = await q;
     setState({ turnosLoading:false, turnos: data || [] });
   }
@@ -164,16 +303,21 @@
   async function cargarGastos(){
     setState({ gastosLoading:true });
     const f = state.gastosFiltro;
-    let q = supabase.from('gastos').select('*, vehiculos(patente,marca,modelo)').order('fecha',{ascending:false});
+    let q = supabase.from('gastos').select('*, vehiculos(patente,marca,modelo)').order('fecha',{ascending:false}).limit(300);
     if (f.vehiculo) q = q.eq('vehiculo_id', f.vehiculo);
     if (f.tipo) q = q.eq('tipo', f.tipo);
+    if (f.soloSospechosos) q = q.eq('es_sospechoso', true);
     const { data } = await q;
     setState({ gastosLoading:false, gastos: data || [] });
   }
 
   async function cargarQuincenal(){
     setState({ quincenalLoading:true });
-    const { data } = await supabase.from('registro_fotografico_quincenal').select('*, vehiculos(patente), usuarios(nombre)').order('fecha_registro', { ascending:false });
+    const { data } = await supabase
+      .from('registro_fotografico_quincenal')
+      .select('*, vehiculos(patente,marca,modelo), usuarios(nombre)')
+      .order('fecha_registro', { ascending:false })
+      .limit(60);
     setState({ quincenalLoading:false, quincenal: data || [] });
   }
 
@@ -182,34 +326,52 @@
     setState({ detalleTurnoId: turnoId, detalle:null, detalleLoading:true });
     try {
       const [{ data: turno }, { data: checklists }, { data: viajes }, { data: gastos }] = await Promise.all([
-        supabase.from('turnos').select('*, usuarios(nombre), vehiculos(patente,marca,modelo)').eq('id', turnoId).single(),
+        supabase.from('turnos').select('*, usuarios(nombre), vehiculos(patente,marca,modelo,rendimiento_esperado_kml)').eq('id', turnoId).single(),
         supabase.from('checklists_realizados').select('*').eq('turno_id', turnoId).order('momento'),
         supabase.from('viajes_bodega').select('*').eq('turno_id', turnoId).order('hora_salida_bodega'),
         supabase.from('gastos').select('*').eq('turno_id', turnoId).order('fecha'),
       ]);
+
       const checklistsConRespuestas = [];
       for (const c of (checklists || [])){
-        const { data: respuestas } = await supabase.from('inspeccion_respuestas').select('*, checklist_items(nombre,categoria)').eq('checklist_id', c.id);
+        const { data: respuestas } = await supabase
+          .from('inspeccion_respuestas')
+          .select('*, checklist_items(nombre,categoria,es_critico)')
+          .eq('checklist_id', c.id);
         checklistsConRespuestas.push({ checklist: c, respuestas: respuestas || [] });
       }
-      setState({ detalleLoading:false, detalle: { turno, checklists: checklistsConRespuestas, viajes: viajes || [], gastos: gastos || [] } });
-    } catch(e){ setState({ detalleLoading:false }); }
+
+      setState({
+        detalleLoading:false,
+        detalle: { turno, checklists: checklistsConRespuestas, viajes: viajes || [], gastos: gastos || [] },
+      });
+    } catch(e){
+      setState({ detalleLoading:false });
+    }
   }
 
+  function cerrarDetalle(){ setState({ detalleTurnoId:null, detalle:null }); }
+
+  // =====================================================================
+  // RENDER ORIGINAL
+  // =====================================================================
   function render(){
     const app = document.getElementById('app');
     app.innerHTML = `
       <div class="shell">
         <div class="sidebar">
-          <div class="brand"><div class="eyebrow">Flota · Privado</div><h1>Panel Admin</h1></div>
-          <div class="nav-item ${state.tab==='resumen'?'active':''}" data-tab="resumen">Resumen y Alertas</div>
-          <div class="nav-item ${state.tab==='turnos'?'active':''}" data-tab="turnos">Historial Turnos</div>
+          <div class="brand">
+            <div class="eyebrow">Flota · Privado</div>
+            <h1>Panel Admin</h1>
+          </div>
+          <div class="nav-item ${state.tab==='resumen'?'active':''}" data-tab="resumen">Resumen</div>
+          <div class="nav-item ${state.tab==='turnos'?'active':''}" data-tab="turnos">Turnos</div>
           <div class="nav-item ${state.tab==='gastos'?'active':''}" data-tab="gastos">Gastos</div>
-          <div class="nav-item ${state.tab==='quincenal'?'active':''}" data-tab="quincenal">Carrocería quincenal</div>
+          <div class="nav-item ${state.tab==='quincenal'?'active':''}" data-tab="quincenal">Carrocería</div>
           <div class="nav-item ${state.tab==='flota'?'active':''}" data-tab="flota">Camiones y choferes</div>
         </div>
         <div class="content">
-          <div class="content-head"><h2>Panel de Control Directo</h2></div>
+          <div class="content-head"><h2>Panel de Administración Pro</h2></div>
           ${tabBody()}
         </div>
       </div>
@@ -219,14 +381,30 @@
   }
 
   function tabBody(){
-    if (state.tab === 'resumen') {
-      return `
-        <div class="kpi-grid">
-          <div class="kpi ok"><div class="kpi-label">Turnos abiertos</div><div class="kpi-value">${state.kpis ? state.kpis.abiertos : '…'}</div></div>
-          <div class="kpi warn"><div class="kpi-label">Alertas NC Totales</div><div class="kpi-value">${state.kpis ? state.kpis.discrepancy : '…'}</div></div>
-        </div>
-        <div style="margin-bottom:12px; font-weight:600;">🚨 Alertas Técnicas (NC) Recientes</div>
-        <div class="table-wrap">
+    switch(state.tab){
+      case 'resumen': return resumenTab();
+      case 'turnos': return turnosTab();
+      case 'gastos': return gastosTab();
+      case 'quincenal': return quincenalTab();
+      case 'flota': return flotaTab();
+      default: return '';
+    }
+  }
+
+  // ---------- Vista Resumen ----------
+  function resumenTab(){
+    const k = state.kpis;
+    return `
+      <div class="kpi-grid">
+        <div class="kpi ok"><div class="kpi-label">Turnos abiertos ahora</div><div class="kpi-value">${state.resumenLoading || !k ? '…' : k.abiertos}</div></div>
+        <div class="kpi warn"><div class="kpi-label">Turnos con discrepancia</div><div class="kpi-value">${state.resumenLoading || !k ? '…' : k.discrepancia}</div></div>
+        <div class="kpi danger"><div class="kpi-label">Gastos sospechosos</div><div class="kpi-value">${state.resumenLoading || !k ? '…' : k.sospechosos}</div></div>
+        <div class="kpi"><div class="kpi-label">Camiones activos</div><div class="kpi-value">${state.vehiculos.filter(v=>v.activo).length}</div></div>
+      </div>
+
+      <div style="margin-bottom: 14px; font-weight: 600;" class="panel-title">🚨 Últimas Alertas Técnicas de Terreno (NC)</div>
+      <div class="table-wrap" style="margin-bottom: 24px;">
+        ${state.alertasNC.length === 0 ? `<div class="empty-state">No hay fallas reportadas recientemente.</div>` : `
           <table>
             <thead><tr><th>Vehículo</th><th>Chofer</th><th>Ítem</th><th>Comentario</th><th>Foto</th><th>Acción</th></tr></thead>
             <tbody>
@@ -235,106 +413,368 @@
                   <td class="mono" style="font-weight:700; color:var(--accent);">${al.checklists_realizados?.vehiculos?.patente || '—'}</td>
                   <td>${al.checklists_realizados?.usuarios?.nombre || '—'}</td>
                   <td><b>${al.checklist_items?.nombre || '—'}</b></td>
-                  <td style="font-style:italic;">"${al.comentario || 'Sin observaciones'}"</td>
+                  <td>"${al.comentario || 'Sin observaciones'}"</td>
                   <td>${al.foto_url ? `<a href="${al.foto_url}" target="_blank"><img class="thumb" src="${al.foto_url}"></a>` : '—'}</td>
-                  <td>${al.checklists_realizados?.turno_id ? `<button class="btn btn-ghost" style="padding:4px 8px; font-size:11px;" data-detalle="${al.checklists_realizados.turno_id}">Ver Turno</button>` : 'Apertura'}</td>
+                  <td>${al.checklists_realizados?.turno_id ? `<button class="btn btn-ghost" style="padding:4px 8px; font-size:11px;" data-detalle="${al.checklists_realizados.turno_id}">Ver Turno</button>` : '<span class="dim">Apertura</span>'}</td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
-        </div>
-      `;
-    }
-    if (state.tab === 'turnos') {
-      return `
-        <div class="filters">
-          <select id="f_turno_vehiculo"><option value="">Todos los Camiones</option>${state.vehiculos.map(v => `<option value="${v.id}">${v.patente}</option>`).join('')}</select>
-          <button class="btn btn-primary" id="btn-filtrar-turnos">Filtrar</button>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Camión</th><th>Chofer</th><th>Inicio</th><th>Km</th><th>Estado</th></tr></thead>
-            <tbody>
-              ${state.turnos.map(t => `<tr class="clickable" data-detalle="${t.id}"><td class="mono">${t.vehiculos?.patente||'—'}</td><td>${t.usuarios?.nombre||'—'}</td><td>${fmtFecha(t.fecha_inicio)}</td><td class="mono">${t.odometro_fin ? (t.odometro_fin - t.odometro_inicio)+' km' : 'En curso'}</td><td>${t.estado}</td></tr>`).join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
-    }
-    if (state.tab === 'gastos') {
-      return `
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Fecha</th><th>Camión</th><th>Tipo</th><th>Monto</th><th>Boleta</th></tr></thead>
-            <tbody>
-              ${state.gastos.map(g => `<tr><td>${fmtFechaCorta(g.fecha)}</td><td class="mono">${g.vehiculos?.patente||'—'}</td><td>${g.tipo}</td><td class="mono">${fmtMoney(g.monto)}</td><td>${g.boleta_foto_url ? `<a href="${g.boleta_foto_url}" target="_blank"><img class="thumb" src="${g.boleta_foto_url}"></a>` : '—'}</td></tr>`).join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
-    }
-    if (state.tab === 'quincenal') {
-      return `
-        <div class="quincenal-grid">
-          ${state.quincenal.map(r => `
-            <div class="quincenal-card">
-              <div class="mono" style="color:var(--accent);">${r.vehiculos?.patente||'—'}</div>
-              <div class="dim" style="font-size:11px;">${fmtFecha(r.fecha_registro)} por ${r.usuarios?.nombre||'—'}</div>
-              <div class="quincenal-photos">
-                ${['fotos_puertas','fotos_parachoques','fotos_focos','fotos_espejos','fotos_costados'].map(k => r[k]?.map(url => `<a href="${url}" target="_blank"><img src="${url}"></a>`).join('') || '').join('')}
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      `;
-    }
-    if (state.tab === 'flota') {
-      return `
-        <div class="panel-row">
-          <div class="table-wrap">
-            <table><thead><tr><th>Patente</th><th>Marca/Modelo</th></tr></thead><tbody>${state.vehiculos.map(v => `<tr><td class="mono">${v.patente}</td><td>${v.marca} ${v.modelo}</td></tr>`).join('')}</tbody></table>
-          </div>
-          <div class="table-wrap">
-            <table><thead><tr><th>Chofer habilitado</th></tr></thead><tbody>${state.choferes.map(c => `<tr><td>${c.nombre}</td></tr>`).join('')}</tbody></table>
-          </div>
-        </div>
-      `;
-    }
-  }
+        `}
+      </div>
 
-  function drawerDetalleTurno() {
-    const d = state.detalle; if (!d) return '';
-    return `
-      <div class="overlay" id="overlay-detalle">
-        <div class="drawer">
-          <div class="drawer-head"><h3>Resumen Turno ${d.turno.vehiculos?.patente||''}</h3><button class="drawer-close" id="btn-cerrar-detalle">✕</button></div>
-          <div class="drawer-section">
-            <div class="drawer-section-title">Checklists Evaluados</div>
-            ${d.checklists.map(ck => ck.respuestas.map(r => `
-              <div class="chk-item">
-                <div class="chk-item-top"><span>${r.checklist_items?.nombre||'—'}</span>${esNoOk(r.estado)?'<span class="badge badge-danger">NC</span>':'<span class="badge badge-ok">OK</span>'}</div>
-                ${r.comentario ? `<div class="chk-comment"><b>Obs:</b> ${r.comentario}</div>` : ''}
-                ${r.foto_url ? `<a class="chk-photo-link" href="${r.foto_url}" target="_blank"><img class="thumb" style="width:60px;height:60px;" src="${r.foto_url}"></a>` : ''}
-              </div>
-            `).join('')).join('')}
+      <div class="panel-row">
+        <div>
+          <div class="panel-title">△ Desvíos / Discrepancias en Turnos</div>
+          <div class="table-wrap">
+            ${state.alertasDiscrepancia.length === 0 ? `<div class="empty-state">Sin discrepancias.</div>` : `
+              <table><tbody>
+                ${state.alertasDiscrepancia.map(t => `
+                  <tr class="clickable" data-detalle="${t.id}">
+                    <td class="mono">${t.vehiculos ? t.vehiculos.patente : '—'}</td>
+                    <td>${t.usuarios ? t.usuarios.nombre : '—'}</td>
+                    <td class="dim">${fmtFechaCorta(t.fecha_inicio)}</td>
+                  </tr>
+                `).join('')}
+              </tbody></table>
+            `}
+          </div>
+        </div>
+        <div>
+          <div class="panel-title">🔴 Gastos Fuera de Rango / Sospechosos</div>
+          <div class="table-wrap">
+            ${state.alertasSospechosos.length === 0 ? `<div class="empty-state">Sin gastos sospechosos.</div>` : `
+              <table><tbody>
+                ${state.alertasSospechosos.map(g => `
+                  <tr>
+                    <td class="mono">${g.vehiculos ? g.vehiculos.patente : '—'}</td>
+                    <td>${TIPO_GASTO_LABEL[g.tipo] || g.tipo}</td>
+                    <td class="mono">${fmtMoney(g.monto)}</td>
+                    <td class="dim">${g.rendimiento_tramo_kml ? g.rendimiento_tramo_kml + ' km/L' : '—'}</td>
+                  </tr>
+                `).join('')}
+              </tbody></table>
+            `}
           </div>
         </div>
       </div>
     `;
   }
 
-  function bindEvents(){
-    document.querySelectorAll('[data-tab]').forEach(el => el.addEventListener('click', () => {
-      setState({ tab: el.dataset.tab });
-      if (el.dataset.tab === 'turnos') cargarTurnos();
-      if (el.dataset.tab === 'gastos') cargarGastos();
-      if (el.dataset.tab === 'quincenal') cargarQuincenal();
-    }));
-    document.querySelectorAll('[data-detalle]').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); abrirDetalleTurno(el.dataset.detalle); }));
-    const cDet = document.getElementById('btn-cerrar-detalle'); if (cDet) cDet.addEventListener('click', () => setState({ detalleTurnoId:null, detalle:null }));
+  // ---------- Vista Turnos ----------
+  function turnosTab(){
+    const f = state.turnosFiltro;
+    if (!state.turnosLoaded && !state.turnosLoading && state.turnos.length === 0){
+      queueMicrotask(cargarTurnos);
+      state.turnosLoaded = true;
+    }
+    return `
+      <div class="filters">
+        <div class="filter-field"><label>Camión</label>
+          <select id="f_turno_vehiculo">
+            <option value="">Todos</option>
+            ${state.vehiculos.map(v => `<option value="${v.id}" ${f.vehiculo===v.id?'selected':''}>${v.patente}</option>`).join('')}
+          </select>
+        </div>
+        <div class="filter-field"><label>Estado</label>
+          <select id="f_turno_estado">
+            <option value="">Todos</option>
+            <option value="abierto" ${f.estado==='abierto'?'selected':''}>Abierto</option>
+            <option value="cerrado" ${f.estado==='cerrado'?'selected':''}>Cerrado</option>
+            <option value="con_discrepancia" ${f.estado==='con_discrepancia'?'selected':''}>Con discrepancia</option>
+          </select>
+        </div>
+        <div class="filter-field"><label>Desde</label><input type="date" id="f_turno_desde" value="${f.desde}"></div>
+        <div class="filter-field"><label>Hasta</label><input type="date" id="f_turno_hasta" value="${f.hasta}"></div>
+        <button class="btn btn-primary" id="btn-filtrar-turnos">Filtrar</button>
+      </div>
+      <div class="table-wrap">
+        ${state.turnosLoading ? `<div class="load-row"><div class="spinner"></div>Cargando turnos…</div>` : (
+          state.turnos.length === 0 ? `<div class="empty-state">No hay turnos.</div>` : `
+          <table>
+            <thead><tr><th>Camión</th><th>Chofer</th><th>Inicio</th><th>Cierre</th><th>Km</th><th>Estado</th></tr></thead>
+            <tbody>
+              ${state.turnos.map(t => {
+                const km = (t.odometro_fin != null) ? (t.odometro_fin - t.odometro_inicio) : null;
+                return `
+                  <tr class="clickable" data-detalle="${t.id}">
+                    <td class="mono">${t.vehiculos ? t.vehiculos.patente : '—'}</td>
+                    <td>${t.usuarios ? t.usuarios.nombre : '—'}</td>
+                    <td class="dim">${fmtFecha(t.fecha_inicio)}</td>
+                    <td class="dim">${t.fecha_fin ? fmtFecha(t.fecha_fin) : '—'}</td>
+                    <td class="mono">${km != null ? fmtNum(km) + ' km' : '—'}</td>
+                    <td>${ESTADO_TURNO_BADGE[t.estado] || t.estado}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        `)}
+      </div>
+    `;
   }
 
-  initAdminDirecto();
+  // ---------- Vista Gastos ----------
+  function gastosTab(){
+    const f = state.gastosFiltro;
+    if (!state.gastosLoaded && !state.gastosLoading && state.gastos.length === 0){
+      queueMicrotask(cargarGastos);
+      state.gastosLoaded = true;
+    }
+    return `
+      <div class="filters">
+        <div class="filter-field"><label>Camión</label>
+          <select id="f_gasto_vehiculo">
+            <option value="">Todos</option>
+            ${state.vehiculos.map(v => `<option value="${v.id}" ${f.vehiculo===v.id?'selected':''}>${v.patente}</option>`).join('')}
+          </select>
+        </div>
+        <div class="filter-field"><label>Tipo</label>
+          <select id="f_gasto_tipo">
+            <option value="">Todos</option>
+            ${Object.entries(TIPO_GASTO_LABEL).map(([id,label]) => `<option value="${id}" ${f.tipo===id?'selected':''}>${label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="filter-field" style="flex-direction:row; align-items:center; gap:8px; padding-bottom:9px;">
+          <input type="checkbox" id="f_gasto_sospechoso" ${f.soloSospechosos?'checked':''} style="width:auto;">
+          <label style="margin:0;">Solo sospechosos</label>
+        </div>
+        <button class="btn btn-primary" id="btn-filtrar-gastos">Filtrar</button>
+      </div>
+      <div class="table-wrap">
+        ${state.gastosLoading ? `<div class="load-row"><div class="spinner"></div>Cargando gastos…</div>` : (
+          state.gastos.length === 0 ? `<div class="empty-state">No hay gastos para estos filtros.</div>` : `
+          <table>
+            <thead><tr><th>Fecha</th><th>Camión</th><th>Tipo</th><th>Monto</th><th>Litros</th><th>Rendimiento</th><th>Estado</th><th>Boleta</th></tr></thead>
+            <tbody>
+              ${state.gastos.map(g => `
+                <tr>
+                  <td class="dim">${fmtFechaCorta(g.fecha)}</td>
+                  <td class="mono">${g.vehiculos ? g.vehiculos.patente : '—'}</td>
+                  <td>${TIPO_GASTO_LABEL[g.tipo] || g.tipo}</td>
+                  <td class="mono">${fmtMoney(g.monto)}</td>
+                  <td class="mono">${g.litros ? g.litros + ' L' : '—'}</td>
+                  <td class="mono">${g.rendimiento_tramo_kml ? g.rendimiento_tramo_kml + ' km/L' : '—'}</td>
+                  <td>${g.es_sospechoso ? '<span class="badge badge-danger">Sospechoso</span>' : (g.aprobado ? '<span class="badge badge-ok">Aprobado</span>' : '<span class="badge badge-dim">Pendiente</span>')}</td>
+                  <td>${g.boleta_foto_url ? `<a href="${g.boleta_foto_url}" target="_blank"><img class="thumb" src="${g.boleta_foto_url}"></a>` : '<span class="dim">—</span>'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `)}
+      </div>
+    `;
+  }
+
+  // ---------- Vista Carrocería ----------
+  function quincenalTab(){
+    if (!state.quincenalLoaded && !state.quincenalLoading && state.quincenal.length === 0){
+      queueMicrotask(cargarQuincenal);
+      state.quincenalLoaded = true;
+    }
+    const CATS = [
+      { key:'fotos_puertas', label:'Puertas' },
+      { key:'fotos_parachoques', label:'Parachoques' },
+      { key:'fotos_focos', label:'Focos' },
+      { key:'fotos_espejos', label:'Espejos' },
+      { key:'fotos_costados', label:'Costados' },
+    ];
+    if (state.quincenalLoading) return `<div class="load-row"><div class="spinner"></div>Cargando registros…</div>`;
+    if (state.quincenal.length === 0) return `<div class="empty-state">Aún no hay registros de carrocería.</div>`;
+    return `
+      <div class="quincenal-grid">
+        ${state.quincenal.map(r => `
+          <div class="quincenal-card">
+            <div class="vp" style="color:var(--accent); font-size:15px;">${r.vehiculos ? r.vehiculos.patente : '—'}</div>
+            <div class="fecha">${fmtFecha(r.fecha_registro)} · ${r.usuarios ? r.usuarios.nombre : '—'}</div>
+            ${CATS.map(c => (r[c.key] && r[c.key].length > 0) ? `
+              <div class="quincenal-cat">${c.label} (${r[c.key].length})</div>
+              <div class="quincenal-photos">
+                ${r[c.key].map(url => `<a href="${url}" target="_blank"><img src="${url}"></a>`).join('')}
+              </div>
+            ` : '').join('')}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  // ---------- Vista Camiones y Choferes ----------
+  function flotaTab(){
+    return `
+      <div class="panel-row">
+        <div>
+          <div class="panel-title">Camiones (${state.vehiculos.length})</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Patente</th><th>Modelo</th><th>Estanque</th><th>Rend. esperado</th><th>Estado</th></tr></thead>
+              <tbody>
+                ${state.vehiculos.map(v => `
+                  <tr>
+                    <td class="mono">${v.patente}</td>
+                    <td>${[v.marca, v.modelo].filter(Boolean).join(' ') || '—'}</td>
+                    <td class="mono">${v.capacidad_estanque_l ? v.capacidad_estanque_l + ' L' : '—'}</td>
+                    <td class="mono">${v.rendimiento_esperado_kml ? v.rendimiento_esperado_kml + ' km/L' : '—'}</td>
+                    <td>${v.activo ? '<span class="badge badge-ok">Activo</span>' : '<span class="badge badge-dim">Inactivo</span>'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <div class="panel-title">Choferes (${state.choferes.length})</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nombre</th><th>RUT</th><th>Teléfono</th><th>Estado</th></tr></thead>
+              <tbody>
+                ${state.choferes.map(c => `
+                  <tr>
+                    <td>${c.nombre}</td>
+                    <td class="mono">${c.rut || '—'}</td>
+                    <td class="mono">${c.telefono || '—'}</td>
+                    <td>${c.activo ? '<span class="badge badge-ok">Activo</span>' : '<span class="badge badge-dim">Inactivo</span>'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ---------- Drawer Historial Completo ----------
+  function drawerDetalleTurno(){
+    if (state.detalleLoading){
+      return `<div class="overlay" id="overlay-detalle"><div class="drawer"><div class="load-row"><div class="spinner"></div>Cargando detalle…</div></div></div>`;
+    }
+    const d = state.detalle;
+    if (!d || d.error) return '';
+    const t = d.turno;
+    const km = t.odometro_fin != null ? (t.odometro_fin - t.odometro_inicio) : null;
+    const totalGastos = d.gastos.reduce((s,g) => s + (parseFloat(g.monto)||0), 0);
+
+    return `
+      <div class="overlay" id="overlay-detalle">
+        <div class="drawer">
+          <div class="drawer-head">
+            <div>
+              <div class="eyebrow">Detalle de turno</div>
+              <h2 style="font-size:19px; margin-top:4px;">${t.vehiculos ? t.vehiculos.patente : '—'}</h2>
+            </div>
+            <button class="drawer-close" id="btn-cerrar-detalle">✕</button>
+          </div>
+
+          <div class="drawer-section">
+            <div class="drawer-section-title">Datos del turno</div>
+            <div class="meta-row"><span>Chofer</span><span>${t.usuarios ? t.usuarios.nombre : '—'}</span></div>
+            <div class="meta-row"><span>Inicio</span><span>${fmtFecha(t.fecha_inicio)}</span></div>
+            <div class="meta-row"><span>Cierre</span><span>${t.fecha_fin ? fmtFecha(t.fecha_fin) : '—'}</span></div>
+            <div class="meta-row"><span>Odómetro inicio</span><span>${fmtNum(t.odometro_inicio)} km</span></div>
+            <div class="meta-row"><span>Odómetro fin</span><span>${t.odometro_fin != null ? fmtNum(t.odometro_fin) + ' km' : '—'}</span></div>
+            <div class="meta-row"><span>Km recorridos</span><span>${km != null ? fmtNum(km) + ' km' : '—'}</span></div>
+            <div class="meta-row"><span>Estado</span><span>${ESTADO_TURNO_BADGE[t.estado] || t.estado}</span></div>
+            ${(t.foto_odometro_inicio_url || t.foto_odometro_fin_url) ? `
+              <div class="odo-photos">
+                ${t.foto_odometro_inicio_url ? `<a href="${t.foto_odometro_inicio_url}" target="_blank"><img src="${t.foto_odometro_inicio_url}"></a>` : ''}
+                ${t.foto_odometro_fin_url ? `<a href="${t.foto_odometro_fin_url}" target="_blank"><img src="${t.foto_odometro_fin_url}"></a>` : ''}
+              </div>
+            ` : ''}
+          </div>
+
+          ${d.checklists.map(ck => `
+            <div class="drawer-section">
+              <div class="drawer-section-title">Checklist ${ck.checklist.momento.toUpperCase()}</div>
+              ${ck.respuestas.length === 0 ? `<div class="dim">Sin respuestas.</div>` : ck.respuestas.map(r => `
+                <div class="chk-item">
+                  <div class="chk-item-top">
+                    <div class="chk-item-name">${r.checklist_items ? r.checklist_items.nombre : '—'}</div>
+                    ${esNoOk(r.estado) ? '<span class="badge badge-danger">NC</span>' : '<span class="badge badge-ok">OK</span>'}
+                  </div>
+                  ${r.comentario ? `<div class="chk-comment" style="color:var(--warning)"><b>Obs:</b> "${r.comentario}"</div>` : ''}
+                  ${r.foto_url ? `<a class="chk-photo-link" href="${r.foto_url}" target="_blank"><img class="thumb" style="width:60px;height:60px;" src="${r.foto_url}"></a>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          `).join('')}
+
+          <div class="drawer-section">
+            <div class="drawer-section-title">Viajes a bodega (${d.viajes.length})</div>
+            ${d.viajes.map(v => `
+              <div class="log-item">
+                <div class="log-top"><span>${v.scooters_cargados||0} sc. · ${v.baterias_cargadas||0} bat.</span><span class="mono">${v.odometro_regreso ? (v.odometro_regreso - v.odometro_salida) + ' km' : '—'}</span></div>
+                <div class="dim">${fmtFecha(v.hora_salida_bodega)}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="drawer-section">
+            <div class="drawer-section-title">Gastos (${d.gastos.length}) — Total ${fmtMoney(totalGastos)}</div>
+            ${d.gastos.map(g => `
+              <div class="log-item">
+                <div class="log-top"><span>${TIPO_GASTO_LABEL[g.tipo] || g.tipo}</span><span class="mono">${fmtMoney(g.monto)}</span></div>
+                ${g.boleta_foto_url ? `<a class="chk-photo-link" href="${g.boleta_foto_url}" target="_blank"><img class="thumb" style="width:60px;height:60px;" src="${g.boleta_foto_url}"></a>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // =====================================================================
+  // VINCULACIÓN DE EVENTOS
+  // =====================================================================
+  function bindEvents(){
+    document.querySelectorAll('[data-tab]').forEach(el => {
+      el.addEventListener('click', () => {
+        setState({ tab: el.dataset.tab });
+        if (el.dataset.tab === 'resumen') cargarResumen();
+        if (el.dataset.tab === 'turnos') cargarTurnos();
+        if (el.dataset.tab === 'gastos') cargarGastos();
+        if (el.dataset.tab === 'quincenal') cargarQuincenal();
+      });
+    });
+
+    // Filtros de turnos
+    const fv = document.getElementById('f_turno_vehiculo');
+    if (fv) fv.addEventListener('change', e => setField('turnosFiltro','vehiculo', e.target.value));
+    const fe = document.getElementById('f_turno_estado');
+    if (fe) fe.addEventListener('change', e => setField('turnosFiltro','estado', e.target.value));
+    const fd = document.getElementById('f_turno_desde');
+    if (fd) fd.addEventListener('change', e => setField('turnosFiltro','desde', e.target.value));
+    const fh = document.getElementById('f_turno_hasta');
+    if (fh) fh.addEventListener('change', e => setField('turnosFiltro','hasta', e.target.value));
+    const btnFT = document.getElementById('btn-filtrar-turnos');
+    if (btnFT) btnFT.addEventListener('click', cargarTurnos);
+
+    // Filtros de gastos
+    const gv = document.getElementById('f_gasto_vehiculo');
+    if (gv) gv.addEventListener('change', e => setField('gastosFiltro','vehiculo', e.target.value));
+    const gt = document.getElementById('f_gasto_tipo');
+    if (gt) gt.addEventListener('change', e => setField('gastosFiltro','tipo', e.target.value));
+    const gs = document.getElementById('f_gasto_sospechoso');
+    if (gs) gs.addEventListener('change', e => setField('gastosFiltro','soloSospechosos', e.target.checked));
+    const btnFG = document.getElementById('btn-filtrar-gastos');
+    if (btnFG) btnFG.addEventListener('click', cargarGastos);
+
+    // Abrir Drawer desde filas o botones con data-detalle
+    document.querySelectorAll('[data-detalle]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        abrirDetalleTurno(el.dataset.detalle);
+      });
+    });
+
+    const btnCerrarDet = document.getElementById('btn-cerrar-detalle');
+    if (btnCerrarDet) btnCerrarDet.addEventListener('click', cerrarDetalle);
+    const overlay = document.getElementById('overlay-detalle');
+    if (overlay) overlay.addEventListener('click', e => { if (e.target === overlay) cerrarDetalle(); });
+  }
+
+  // Ejecución directa
+  inicializarPanelDirecto();
 })();
 </script>
 </body>
