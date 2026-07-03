@@ -28,22 +28,35 @@
     <script>
         const supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
 
-        async function cargarAlertas() {
-            const { data } = await supabase
-                .from('inspeccion_respuestas')
-                .select('comentario, foto_url, checklist_items(nombre), checklists_realizados(vehiculos(patente))')
-                .eq('estado', 'nc');
-            
-            const tbody = document.getElementById('alertas-body');
-            tbody.innerHTML = data.map(al => `
-                <tr>
-                    <td>${al.checklists_realizados.vehiculos.patente}</td>
-                    <td>${al.checklist_items.nombre}</td>
-                    <td>${al.comentario || 'Sin comentario'}</td>
-                    <td>${al.foto_url ? `<img src="${al.foto_url}" class="foto-preview">` : '-'}</td>
-                </tr>
-            `).join('');
-        }
+       async function cargarAlertas() {
+    // Cambiamos a select(*) para traer todo lo que haya en la tabla sin filtros
+    const { data, error } = await supabase
+        .from('inspeccion_respuestas')
+        .select('*')
+        .eq('estado', 'nc');
+    
+    if (error) {
+        console.error("Error Supabase:", error);
+        return;
+    }
+
+    console.log("Datos recibidos:", data);
+
+    const tbody = document.getElementById('alertas-body');
+    if (!data || data.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='4'>No hay datos para mostrar</td></tr>";
+        return;
+    }
+
+    tbody.innerHTML = data.map(al => `
+        <tr>
+            <td>ID: ${al.checklist_id}</td>
+            <td>${al.item_id}</td>
+            <td>${al.comentario || 'Sin comentario detectado'}</td>
+            <td>${al.foto_url ? `<a href="${al.foto_url}" target="_blank">Ver Foto</a>` : '-'}</td>
+        </tr>
+    `).join('');
+}
         
         cargarAlertas();
     </script>
