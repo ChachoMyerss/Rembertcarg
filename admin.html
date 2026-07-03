@@ -185,27 +185,25 @@
 (function(){
 
   // =====================================================================
-  // CONFIGURACIÓN DE SUPABASE — usa las mismas credenciales que index.html
+  // CONFIGURACIÓN DE SUPABASE
   // =====================================================================
   const SUPABASE_URL = 'https://jxjevmykipkxdfdczznt.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4amV2bXlraXBreGRmZGN6em50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MzA4MzQsImV4cCI6MjA5NzQwNjgzNH0.zJbYDqJi1YcbbxHMz6DFXdMxWhF4k_WxPcuj4dXmeX0';
-
 
   const supabase = (window.supabase && SUPABASE_URL.indexOf('TU-PROYECTO') === -1)
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
 
-  // Mapeo tolerante: la app de terreno usa 'ok'/'nc', el enum original de la
-  // BD contempla 'ok'/'observacion'/'falla'. El panel entiende ambos formatos.
+  // Mapeamos 'nc' como el estado de alerta
   const ESTADOS_NO_OK = ['nc', 'observacion', 'falla'];
-  function esNoOk(estado){ return ESTADOS_NO_OK.includes(estado); }
+  function esNoOk(estado){ return ESTADOS_NO_OK.includes(String(estado).toLowerCase()); }
 
   // =====================================================================
   // ESTADO
   // =====================================================================
   let state = {
-    booting: true,          // resolviendo sesión inicial
-    perfil: null,           // { id, nombre, rol }
+    booting: true,
+    perfil: null,
     accessDenied: false,
     configError: !supabase,
 
@@ -217,12 +215,11 @@
 
     vehiculos: [],
     choferes: [],
-    dataBoot: false,        // vehiculos/choferes ya cargados
+    dataBoot: false,
 
     kpis: null,
     kpisLoading: false,
-    alertasDiscrepancia: [],
-    alertasSospechosos: [],
+    alertasNC: [], // Aquí listaremos las fallas NC reales del checklist diario
     resumenLoading: false,
 
     turnos: [],
@@ -293,7 +290,7 @@
       const { data: perfil, error: perfilErr } = await supabase
         .from('usuarios').select('id, nombre, rol').eq('auth_user_id', authData.user.id).maybeSingle();
       if (perfilErr) throw perfilErr;
-      if (!perfil){ setState({ booting:false, accessDenied:true, loginError:'Tu cuenta no está vinculada a un perfil en "usuarios".' }); return; }
+      if (!perfil){ setState({ booting:false, accessDenied:true, loginError:'Tu cuenta no está vinculada a un perfil.' }); return; }
       if (perfil.rol !== 'admin' && perfil.rol !== 'supervisor'){
         setState({ booting:false, accessDenied:true, perfil });
         return;
@@ -321,7 +318,7 @@
       booting:false, perfil:null, accessDenied:false, configError:!supabase,
       loginForm:{ email:'', password:'' }, loginError:null, loggingIn:false,
       tab:'resumen', vehiculos:[], choferes:[], dataBoot:false,
-      kpis:null, kpisLoading:false, alertasDiscrepancia:[], alertasSospechosos:[], resumenLoading:false,
+      kpis:null, kpisLoading:false, alertasNC:[], resumenLoading:false,
       turnos:[], turnosLoading:false, turnosFiltro:{ vehiculo:'', estado:'', desde:'', hasta:'' },
       gastos:[], gastosLoading:false, gastosFiltro:{ vehiculo:'', tipo:'', soloSospechosos:false },
       quincenal:[], quincenalLoading:false, detalleTurnoId:null, detalle:null, detalleLoading:false,
@@ -343,22 +340,28 @@
   async function cargarResumen(){
     setState({ resumenLoading:true });
     try {
-      const [abiertos, discrepancia, sospechosos, discrepanciaLista, sospechososLista] = await Promise.all([
+      // 1. Contamos turnos activos
+      const [abiertos, totalNC] = await Promise.all([
         supabase.from('turnos').select('id', { count:'exact', head:true }).eq('estado','abierto'),
-        supabase.from('turnos').select('id', { count:'exact', head:true }).eq('estado','con_discrepancia'),
-        supabase.from('gastos').select('id', { count:'exact', head:true }).eq('es_sospechoso', true).eq('aprobado', false),
-        supabase.from('turnos').select('*, usuarios(nombre), vehiculos(patente)').eq('estado','con_discrepancia').order('fecha_inicio',{ascending:false}).limit(6),
-        supabase.from('gastos').select('*, vehiculos(patente)').eq('es_sospechoso', true).eq('aprobado', false).order('fecha',{ascending:false}).limit(6),
+        supabase.from('inspeccion_respuestas').select('id', { count:'exact', head:true }).in('estado', ['nc', 'NC'])
       ]);
+
+      // 2. Traemos las respuestas de inspección que tienen alerta NC de forma directa y limpia
+      const { data: fallas } = await supabase
+        .from('inspeccion_respuestas')
+        .select('*, checklist_items(nombre), checklists_realizados(turno_id, vehiculos(patente), usuarios(nombre))')
+        .in('estado', ['nc', 'NC'])
+        .order('id', { ascending: false })
+        .limit(10);
+
       setState({
         resumenLoading:false,
         kpis: {
           abiertos: abiertos.count || 0,
-          discrepancia: discrepancia.count || 0,
-          sospechosos: sospechosos.count || 0,
+          discrepancia: totalNC.count || 0, // Usamos este KPI para ver cuántos NC hay en total
+          sospechosos: 0
         },
-        alertasDiscrepancia: discrepanciaLista.data || [],
-        alertasSospechosos: sospechososLista.data || [],
+        alertasNC: fallas || []
       });
     } catch(e){
       setState({ resumenLoading:false });
@@ -383,7 +386,6 @@
     let q = supabase.from('gastos').select('*, vehiculos(patente,marca,modelo)').order('fecha',{ascending:false}).limit(300);
     if (f.vehiculo) q = q.eq('vehiculo_id', f.vehiculo);
     if (f.tipo) q = q.eq('tipo', f.tipo);
-    if (f.soloSospechosos) q = q.eq('es_sospechoso', true);
     const { data, error } = await q;
     setState({ gastosLoading:false, gastos: error ? [] : (data || []) });
   }
@@ -399,6 +401,7 @@
   }
 
   async function abrirDetalleTurno(turnoId){
+    if(!turnoId) return;
     setState({ detalleTurnoId: turnoId, detalle:null, detalleLoading:true });
     try {
       const [{ data: turno }, { data: checklists }, { data: viajes }, { data: gastos }] = await Promise.all([
@@ -438,7 +441,7 @@
   }
 
   function screenRoot(){
-    if (state.configError) return errorFull('Falta configurar SUPABASE_URL y SUPABASE_ANON_KEY al inicio del script.');
+    if (state.configError) return errorFull('Falta configurar las credenciales en el script.');
     if (state.booting) return loadingFull('Verificando sesión…');
     if (!state.perfil || state.accessDenied) return loginScreen();
     return `
@@ -470,14 +473,14 @@
             <h1>Acceso de supervisión</h1>
             ${state.loginError ? `<div class="login-error">⚠ ${state.loginError}</div>` : ''}
             ${denegado ? `
-              <div class="login-error">Tu cuenta (${state.perfil.nombre}, rol "${state.perfil.rol}") no tiene permisos de administrador o supervisor.</div>
+              <div class="login-error">Tu cuenta no tiene permisos administrativos.</div>
               <button class="btn btn-ghost btn-full" id="btn-logout">Cerrar sesión</button>
             ` : `
               <label>Correo</label>
-              <input type="email" id="login_email" value="${state.loginForm.email}" placeholder="admin@tuempresa.com">
+              <input type="email" id="login_email" value="${state.loginForm.email}">
               <label>Contraseña</label>
               <input type="password" id="login_password" value="${state.loginForm.password}">
-              <button class="btn btn-primary btn-full" id="btn-login" ${state.loggingIn ? 'disabled' : ''}>${state.loggingIn ? 'Ingresando…' : 'Ingresar'}</button>
+              <button class="btn btn-primary btn-full" id="btn-login" ${state.loggingIn ? 'disabled' : ''}>Ingresar</button>
             `}
           </div>
         </div>
@@ -487,10 +490,10 @@
 
   function sidebar(){
     const items = [
-      { id:'resumen', label:'Resumen' },
-      { id:'turnos', label:'Turnos' },
+      { id:'resumen', label:'Resumen y Alertas' },
+      { id:'turnos', label:'Historial Turnos' },
       { id:'gastos', label:'Gastos' },
-      { id:'quincenal', label:'Carrocería' },
+      { id:'quincenal', label:'Carrocería quincenal' },
       { id:'flota', label:'Camiones y choferes' },
     ];
     return `
@@ -509,7 +512,7 @@
   }
 
   function contentHead(){
-    const titles = { resumen:'Resumen', turnos:'Turnos', gastos:'Gastos', quincenal:'Registro fotográfico de carrocería', flota:'Camiones y choferes' };
+    const titles = { resumen:'Resumen General', turnos:'Historial de Turnos', gastos:'Gastos de Combustible y Ruta', quincenal:'Registro Fotográfico Carrocería', flota:'Control de Camiones y Choferes' };
     return `<div class="content-head"><h2>${titles[state.tab] || ''}</h2></div>`;
   }
 
@@ -529,45 +532,50 @@
     const k = state.kpis;
     return `
       <div class="kpi-grid">
-        <div class="kpi ok"><div class="kpi-label">Turnos abiertos ahora</div><div class="kpi-value">${state.resumenLoading || !k ? '…' : k.abiertos}</div></div>
-        <div class="kpi warn"><div class="kpi-label">Turnos con discrepancia</div><div class="kpi-value">${state.resumenLoading || !k ? '…' : k.discrepancia}</div></div>
-        <div class="kpi danger"><div class="kpi-label">Gastos sospechosos sin aprobar</div><div class="kpi-value">${state.resumenLoading || !k ? '…' : k.sospechosos}</div></div>
-        <div class="kpi"><div class="kpi-label">Camiones activos</div><div class="kpi-value">${state.vehiculos.filter(v=>v.activo).length}</div></div>
+        <div class="kpi ok"><div class="kpi-label">Turnos abiertos hoy</div><div class="kpi-value">${state.resumenLoading || !k ? '…' : k.abiertos}</div></div>
+        <div class="kpi warn"><div class="kpi-label">Ítems Reportados en NC</div><div class="kpi-value">${state.resumenLoading || !k ? '…' : k.discrepancia}</div></div>
+        <div class="kpi"><div class="kpi-label">Camiones en Sistema</div><div class="kpi-value">${state.vehiculos.filter(v=>v.activo).length}</div></div>
       </div>
-      <div class="panel-row">
-        <div>
-          <div class="panel-title">△ Turnos con discrepancia recientes</div>
-          <div class="table-wrap">
-            ${state.alertasDiscrepancia.length === 0 ? `<div class="empty-state">Sin discrepancias pendientes.</div>` : `
-              <table><tbody>
-                ${state.alertasDiscrepancia.map(t => `
-                  <tr class="clickable" data-detalle="${t.id}">
-                    <td class="mono">${t.vehiculos ? t.vehiculos.patente : '—'}</td>
-                    <td>${t.usuarios ? t.usuarios.nombre : '—'}</td>
-                    <td class="dim">${fmtFechaCorta(t.fecha_inicio)}</td>
-                  </tr>
-                `).join('')}
-              </tbody></table>
-            `}
-          </div>
-        </div>
-        <div>
-          <div class="panel-title">🔴 Gastos sospechosos sin aprobar</div>
-          <div class="table-wrap">
-            ${state.alertasSospechosos.length === 0 ? `<div class="empty-state">Sin gastos sospechosos pendientes.</div>` : `
-              <table><tbody>
-                ${state.alertasSospechosos.map(g => `
+      
+      <div style="margin-bottom: 12px; font-weight: 600;" class="panel-title">🚨 Últimas Alertas Técnicas (NC) Reportadas por Choferes</div>
+      <div class="table-wrap" style="margin-bottom: 24px;">
+        ${state.alertasNC.length === 0 ? `<div class="empty-state">No se registran alertas NC recientes en el sistema.</div>` : `
+          <table>
+            <thead>
+              <tr>
+                <th>Vehículo</th>
+                <th>Chofer</th>
+                <th>Ítem Afectado</th>
+                <th>Comentario del Chofer</th>
+                <th>Fotografía</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${state.alertasNC.map(al => {
+                const patente = al.checklists_realizados?.vehiculos?.patente || '—';
+                const chofer = al.checklists_realizados?.usuarios?.nombre || '—';
+                const itemNombre = al.checklist_items?.nombre || '—';
+                const turnoId = al.checklists_realizados?.turno_id;
+
+                return `
                   <tr>
-                    <td class="mono">${g.vehiculos ? g.vehiculos.patente : '—'}</td>
-                    <td>${TIPO_GASTO_LABEL[g.tipo] || g.tipo}</td>
-                    <td class="mono">${fmtMoney(g.monto)}</td>
-                    <td class="dim">${g.rendimiento_tramo_kml ? g.rendimiento_tramo_kml + ' km/L' : '—'}</td>
+                    <td class="mono" style="font-weight:700; color:var(--accent);">${patente}</td>
+                    <td>${chofer}</td>
+                    <td><b>${itemNombre}</b></td>
+                    <td style="color:var(--text); font-style:italic;">"${al.comentario || 'Sin observaciones escritas'}"</td>
+                    <td>
+                      ${al.foto_url ? `<a href="${al.foto_url}" target="_blank"><img class="thumb" src="${al.foto_url}"></a>` : '<span class="dim">— sin foto —</span>'}
+                    </td>
+                    <td>
+                      ${turnoId ? `<button class="btn btn-ghost" style="padding:4px 8px; font-size:11px;" data-detalle="${turnoId}">Ver Turno</button>` : '<span class="dim">Apertura en proceso</span>'}
+                    </td>
                   </tr>
-                `).join('')}
-              </tbody></table>
-            `}
-          </div>
-        </div>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        `}
       </div>
     `;
   }
@@ -576,7 +584,6 @@
   function turnosTab(){
     const f = state.turnosFiltro;
     if (!state.turnosLoaded && !state.turnosLoading && state.turnos.length === 0){
-      // primera carga perezosa
       queueMicrotask(cargarTurnos);
       state.turnosLoaded = true;
     }
@@ -593,7 +600,6 @@
             <option value="">Todos</option>
             <option value="abierto" ${f.estado==='abierto'?'selected':''}>Abierto</option>
             <option value="cerrado" ${f.estado==='cerrado'?'selected':''}>Cerrado</option>
-            <option value="con_discrepancia" ${f.estado==='con_discrepancia'?'selected':''}>Con discrepancia</option>
           </select>
         </div>
         <div class="filter-field"><label>Desde</label><input type="date" id="f_turno_desde" value="${f.desde}"></div>
@@ -647,17 +653,13 @@
             ${Object.entries(TIPO_GASTO_LABEL).map(([id,label]) => `<option value="${id}" ${f.tipo===id?'selected':''}>${label}</option>`).join('')}
           </select>
         </div>
-        <div class="filter-field" style="flex-direction:row; align-items:center; gap:8px; padding-bottom:9px;">
-          <input type="checkbox" id="f_gasto_sospechoso" ${f.soloSospechosos?'checked':''} style="width:auto;">
-          <label style="margin:0;">Solo sospechosos</label>
-        </div>
         <button class="btn btn-primary" id="btn-filtrar-gastos">Filtrar</button>
       </div>
       <div class="table-wrap">
         ${state.gastosLoading ? `<div class="load-row"><div class="spinner"></div>Cargando gastos…</div>` : (
           state.gastos.length === 0 ? `<div class="empty-state">No hay gastos para estos filtros.</div>` : `
           <table>
-            <thead><tr><th>Fecha</th><th>Camión</th><th>Tipo</th><th>Monto</th><th>Litros</th><th>Rendimiento tramo</th><th>Estado</th><th>Boleta</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Camión</th><th>Tipo</th><th>Monto</th><th>Litros</th><th>Rendimiento tramo</th><th>Boleta</th></tr></thead>
             <tbody>
               ${state.gastos.map(g => `
                 <tr>
@@ -667,7 +669,6 @@
                   <td class="mono">${fmtMoney(g.monto)}</td>
                   <td class="mono">${g.litros ? g.litros + ' L' : '—'}</td>
                   <td class="mono">${g.rendimiento_tramo_kml ? g.rendimiento_tramo_kml + ' km/L' : '—'}</td>
-                  <td>${g.es_sospechoso ? '<span class="badge badge-danger">Sospechoso</span>' : (g.aprobado ? '<span class="badge badge-ok">Aprobado</span>' : '<span class="badge badge-dim">Pendiente</span>')}</td>
                   <td>${g.boleta_foto_url ? `<a href="${g.boleta_foto_url}" target="_blank"><img class="thumb" src="${g.boleta_foto_url}"></a>` : '<span class="dim">—</span>'}</td>
                 </tr>
               `).join('')}
@@ -691,13 +692,13 @@
       { key:'fotos_espejos', label:'Espejos' },
       { key:'fotos_costados', label:'Costados' },
     ];
-    if (state.quincenalLoading) return `<div class="load-row"><div class="spinner"></div>Cargando registros…</div>`;
+    if (state.quincenalLoading) return `<div class="load-row"><div class="spinner"></div>Cargando registros fotográficos…</div>`;
     if (state.quincenal.length === 0) return `<div class="empty-state">Aún no hay registros de carrocería.</div>`;
     return `
       <div class="quincenal-grid">
         ${state.quincenal.map(r => `
           <div class="quincenal-card">
-            <div class="vp">${r.vehiculos ? r.vehiculos.patente : '—'}</div>
+            <div class="vp" style="color:var(--accent); font-size:16px;">${r.vehiculos ? r.vehiculos.patente : '—'}</div>
             <div class="fecha">${fmtFecha(r.fecha_registro)} · ${r.usuarios ? r.usuarios.nombre : '—'}</div>
             ${CATS.map(c => (r[c.key] && r[c.key].length > 0) ? `
               <div class="quincenal-cat">${c.label} (${r[c.key].length})</div>
@@ -757,13 +758,13 @@
   }
 
   // ---------- Drawer detalle de turno ----------
-  function drawerDetalleTurno(){
+  function drawerDetalleTurno() {
     if (state.detalleLoading){
-      return `<div class="overlay" id="overlay-detalle"><div class="drawer"><div class="load-row"><div class="spinner"></div>Cargando detalle…</div></div></div>`;
+      return `<div class="overlay" id="overlay-detalle"><div class="drawer"><div class="load-row"><div class="spinner"></div>Cargando historial de turno…</div></div></div>`;
     }
     const d = state.detalle;
     if (!d || d.error){
-      return `<div class="overlay" id="overlay-detalle"><div class="drawer"><div class="login-error">⚠ ${d ? d.error : 'Error desconocido'}</div></div></div>`;
+      return `<div class="overlay" id="overlay-detalle"><div class="drawer"><div class="login-error">⚠ No se cargó el detalle</div></div></div>`;
     }
     const t = d.turno;
     const km = t.odometro_fin != null ? (t.odometro_fin - t.odometro_inicio) : null;
@@ -774,7 +775,7 @@
         <div class="drawer">
           <div class="drawer-head">
             <div>
-              <div class="eyebrow">Detalle de turno</div>
+              <div class="eyebrow">Historial de Turno</div>
               <h2 style="font-size:19px; margin-top:4px;">${t.vehiculos ? t.vehiculos.patente : '—'}</h2>
             </div>
             <button class="drawer-close" id="btn-cerrar-detalle">✕</button>
@@ -799,15 +800,15 @@
 
           ${d.checklists.map(ck => `
             <div class="drawer-section">
-              <div class="drawer-section-title">Checklist ${ck.checklist.momento.toUpperCase()}</div>
-              ${ck.respuestas.length === 0 ? `<div class="dim" style="font-size:13px;">Sin respuestas registradas.</div>` : ck.respuestas.map(r => `
+              <div class="drawer-section-title">Checklist Realizado — ${ck.checklist.momento.toUpperCase()}</div>
+              ${ck.respuestas.length === 0 ? `<div class="dim" style="font-size:13px;">Sin respuestas guardadas.</div>` : ck.respuestas.map(r => `
                 <div class="chk-item">
                   <div class="chk-item-top">
                     <div class="chk-item-name">${r.checklist_items ? r.checklist_items.nombre : '—'}</div>
-                    ${esNoOk(r.estado) ? '<span class="badge badge-warn">NC</span>' : '<span class="badge badge-ok">OK</span>'}
+                    ${esNoOk(r.estado) ? '<span class="badge badge-danger">NC (Falla)</span>' : '<span class="badge badge-ok">OK</span>'}
                   </div>
-                  ${r.comentario ? `<div class="chk-comment">${r.comentario}</div>` : ''}
-                  ${r.foto_url ? `<a class="chk-photo-link" href="${r.foto_url}" target="_blank"><img class="thumb" style="width:60px;height:60px;" src="${r.foto_url}"></a>` : ''}
+                  ${r.comentario ? `<div class="chk-comment" style="color:var(--warning); font-style:italic; font-size:13px;"><b>Comentario chofer:</b> "${r.comentario}"</div>` : ''}
+                  ${r.foto_url ? `<a class="chk-photo-link" href="${r.foto_url}" target="_blank"><img class="thumb" style="width:70px; height:70px; border-radius:6px;" src="${r.foto_url}"></a>` : ''}
                 </div>
               `).join('')}
             </div>
@@ -815,7 +816,7 @@
 
           <div class="drawer-section">
             <div class="drawer-section-title">Viajes a bodega (${d.viajes.length})</div>
-            ${d.viajes.length === 0 ? `<div class="dim" style="font-size:13px;">Sin viajes registrados.</div>` : d.viajes.map(v => {
+            ${d.viajes.length === 0 ? `<div class="dim" style="font-size:13px;">Sin viajes registrados en este turno.</div>` : d.viajes.map(v => {
               const kmv = (v.odometro_regreso != null) ? (v.odometro_regreso - v.odometro_salida) : null;
               return `
                 <div class="log-item">
@@ -828,14 +829,14 @@
 
           <div class="drawer-section">
             <div class="drawer-section-title">Gastos del turno (${d.gastos.length}) — total ${fmtMoney(totalGastos)}</div>
-            ${d.gastos.length === 0 ? `<div class="dim" style="font-size:13px;">Sin gastos registrados.</div>` : d.gastos.map(g => `
+            ${d.gastos.length === 0 ? `<div class="dim" style="font-size:13px;">Sin gastos cargados en este turno.</div>` : d.gastos.map(g => `
               <div class="log-item">
                 <div class="log-top">
                   <span>${TIPO_GASTO_LABEL[g.tipo] || g.tipo}</span>
                   <span class="mono">${fmtMoney(g.monto)}</span>
                 </div>
-                ${g.litros ? `<div class="dim">${g.litros} L${g.rendimiento_tramo_kml ? ' · ' + g.rendimiento_tramo_kml + ' km/L' : ''}${g.es_sospechoso ? ' · <span style="color:var(--danger);">sospechoso</span>' : ''}</div>` : ''}
-                ${g.boleta_foto_url ? `<a class="chk-photo-link" href="${g.boleta_foto_url}" target="_blank"><img class="thumb" style="width:60px;height:60px;" src="${g.boleta_foto_url}"></a>` : ''}
+                ${g.litros ? `<div class="dim">${g.litros} L ${g.rendimiento_tramo_kml ? ' · ' + g.rendimiento_tramo_kml + ' km/L' : ''}</div>` : ''}
+                ${g.boleta_foto_url ? `<a class="chk-photo-link" href="${g.boleta_foto_url}" target="_blank"><img class="thumb" style="width:70px; height:70px;" src="${g.boleta_foto_url}"></a>` : ''}
               </div>
             `).join('')}
           </div>
@@ -862,7 +863,10 @@
     if (btnLogout) btnLogout.addEventListener('click', logout);
 
     document.querySelectorAll('[data-tab]').forEach(el => {
-      el.addEventListener('click', () => setState({ tab: el.dataset.tab }));
+      el.addEventListener('click', () => {
+        setState({ tab: el.dataset.tab });
+        if (el.dataset.tab === 'resumen') cargarResumen();
+      });
     });
 
     // Filtros de turnos
@@ -882,14 +886,15 @@
     if (gv) gv.addEventListener('change', e => setField('gastosFiltro','vehiculo', e.target.value));
     const gt = document.getElementById('f_gasto_tipo');
     if (gt) gt.addEventListener('change', e => setField('gastosFiltro','tipo', e.target.value));
-    const gs = document.getElementById('f_gasto_sospechoso');
-    if (gs) gs.addEventListener('change', e => setField('gastosFiltro','soloSospechosos', e.target.checked));
     const btnFG = document.getElementById('btn-filtrar-gastos');
     if (btnFG) btnFG.addEventListener('click', cargarGastos);
 
-    // Filas clickeables → detalle de turno
+    // Clic en filas o botones con data-detalle → abren el Drawer lateral
     document.querySelectorAll('[data-detalle]').forEach(el => {
-      el.addEventListener('click', () => abrirDetalleTurno(el.dataset.detalle));
+      el.addEventListener('click', (e) => {
+        e.stopPropagation(); // Evita conflictos de clics encimados
+        abrirDetalleTurno(el.dataset.detalle);
+      });
     });
 
     const btnCerrarDet = document.getElementById('btn-cerrar-detalle');
@@ -904,4 +909,3 @@
 </script>
 </body>
 </html>
-
