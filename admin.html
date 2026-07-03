@@ -187,8 +187,9 @@
   // =====================================================================
   // CONFIGURACIÓN DE SUPABASE — usa las mismas credenciales que index.html
   // =====================================================================
-  const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
-  const SUPABASE_ANON_KEY = 'TU-ANON-KEY';
+  const SUPABASE_URL = 'https://jxjevmykipkxdfdczznt.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4amV2bXlraXBreGRmZGN6em50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MzA4MzQsImV4cCI6MjA5NzQwNjgzNH0.zJbYDqJi1YcbbxHMz6DFXdMxWhF4k_WxPcuj4dXmeX0';
+
 
   const supabase = (window.supabase && SUPABASE_URL.indexOf('TU-PROYECTO') === -1)
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
