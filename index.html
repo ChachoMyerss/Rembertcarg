@@ -238,31 +238,21 @@
   // API). El anon key es público y seguro de exponer en el frontend: toda
   // la seguridad real la dan las políticas RLS definidas en schema.sql.
   // =====================================================================
+// =====================================================================
+  // CONFIGURACIÓN DE SUPABASE
+  // =====================================================================
   const SUPABASE_URL = 'https://jxjevmykipkxdfdczznt.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4amV2bXlraXBreGRmZGN6em50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MzA4MzQsImV4cCI6MjA5NzQwNjgzNH0.zJbYDqJi1YcbbxHMz6DFXdMxWhF4k_WxPcuj4dXmeX0';
   const FOTOS_BUCKET = 'flota-fotos';
-// CÓDIGO TEMPORAL PARA FORZAR EL LOGIN EN PRUEBAS
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-async function loginDePrueba() {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: 'chacho@rembercarg.com', // El correo que creaste en Auth
-    password: '123456'     // La contraseña que le pusiste
-  });
-  
-  if (error) {
-    console.error("Error al iniciar sesión:", error.message);
-  } else {
-    console.log("¡Sesión iniciada exitosamente!", data);
-    // Recarga la página automáticamente para que el módulo reconozca la sesión
-    window.location.reload(); 
-  }
-}
+  // Solo debe existir ESTE const supabase
+  const supabase = (window.supabase && SUPABASE_URL.indexOf('TU-PROYECTO') === -1)
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
 
-// Descomenta la siguiente línea y recarga la página UNA VEZ para iniciar sesión. 
-// Luego vuelve a comentarla para que no se recargue infinitamente.
-// loginDePrueba();
-
+  // =====================================================================
+  // ESTADO
+  // =====================================================================
 
 
   // =====================================================================
