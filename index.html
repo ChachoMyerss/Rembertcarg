@@ -965,7 +965,7 @@
   // Revisamos la sesión PRIMERO
   supabase.auth.getSession().then(({data}) => {
     if (!data.session) {
-      supabase.auth.signInWithPassword({ email: 'chacho@rembercarg.com', password: '123456' })
+      supabase.auth.signInWithPassword({ email: 'chofer1@rembercarg.com', password: '123456' })
         .then(({error}) => {
           if(!error) window.location.reload(); 
           else setState({ loading: false, loadError: "Error de credenciales: " + error.message });
