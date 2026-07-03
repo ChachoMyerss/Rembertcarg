@@ -1158,7 +1158,21 @@
     }));
   }
 
-  render();
+render();
+  
+  // INICIO DE SESIÓN AUTOMÁTICO SEGURO
+  supabase.auth.getSession().then(({data}) => {
+    if (!data.session) {
+      supabase.auth.signInWithPassword({
+        email: 'chacho@rembercarg.com',
+        password: '123456'
+      }).then(() => {
+        console.log("Sesión iniciada");
+        window.location.reload(); // Recarga una vez para aplicar la sesión
+      });
+    }
+  });
+
   init();
 })();
 </script>
