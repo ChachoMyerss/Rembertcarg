@@ -294,12 +294,15 @@
     turnoId: null,
     viajes: [],
     gastos: [],
-    viajeForm: { scooters:'', baterias:'', odo_salida:'', odo_regreso:'' },
-    gastoForm: { tipo:'combustible', monto:'', litros:'', odo:'', foto:null },
+    viajeForm: { scooters:'', baterias:'', odo_salida:'', odo_regreso:'', editId:null },
+    viajeCierreForm: { odo_regreso:'' },
+    gastoForm: { tipo:'combustible', monto:'', litros:'', odo:'', foto:null, editId:null, fotoExistenteUrl:null },
 
     saving: false,
     saveError: null,
   };
+
+  const TIPO_GASTO_LABEL = { combustible:'Combustible', peaje:'Peaje', mantencion:'Mantención', otro:'Otro' };
 
   // =====================================================================
   // HELPERS DE ESTADO / RENDER
@@ -358,7 +361,9 @@
   }
 
   function sanitizeNumeric(raw, allowDecimal){
-    let v = allowDecimal ? raw.replace(/[^0-9.]/g, '') : raw.replace(/[^0-9]/g, '');
+    let v = raw;
+    if (allowDecimal) v = v.replace(/,/g, '.'); // "26,5" (formato chileno) → "26.5"
+    v = allowDecimal ? v.replace(/[^0-9.]/g, '') : v.replace(/[^0-9]/g, '');
     if (allowDecimal){
       const firstDot = v.indexOf('.');
       if (firstDot !== -1){
@@ -392,14 +397,15 @@
     return objectUrlCache.get(file);
   }
 
-  function fotoField(id, label, file){
+  function fotoField(id, label, file, existingUrl){
+    const src = file ? previewUrl(file) : (existingUrl || null);
     return `
       <div class="foto-block">
-        <label>${label}</label>
+        ${label ? `<label>${label}</label>` : ''}
         <div class="foto-row">
           <input type="file" accept="image/*" capture="environment" id="${id}" style="display:none;">
-          <label for="${id}" class="foto-btn">${file ? '🔁 Cambiar' : '📷 Adjuntar foto'}</label>
-          ${file ? `<img src="${previewUrl(file)}" class="foto-thumb">` : ''}
+          <label for="${id}" class="foto-btn">${src ? '🔁 Cambiar' : '📷 Adjuntar foto'}</label>
+          ${src ? `<img src="${src}" class="foto-thumb">` : ''}
         </div>
       </div>
     `;
@@ -573,7 +579,10 @@
 
       const { error: linkErr } = await supabase.from('checklists_realizados').update({ turno_id: turno.id }).eq('id', checklist.id);
       if (linkErr) throw linkErr;
-      setState({ saving:false, saveError:null, turnoId: turno.id, screen:'active' });
+      setState({
+        saving:false, saveError:null, turnoId: turno.id, screen:'viaje-form',
+        viajeForm: { scooters:'', baterias:'', odo_salida: state.odo_inicio, odo_regreso:'', editId:null },
+      });
     } catch(e){
       setState({ saving:false, saveError: e.message || String(e) });
     }
@@ -596,18 +605,63 @@
     }
   }
 
-  async function guardarViaje(){
+  function viajeEnCurso(){
+    return state.viajes.find(v => v.odometro_regreso === null || v.odometro_regreso === undefined) || null;
+  }
+
+  function odoSugeridoNuevoViaje(){
+    const finalizados = state.viajes.filter(v => v.odometro_regreso !== null && v.odometro_regreso !== undefined);
+    if (finalizados.length > 0) return String(finalizados[finalizados.length - 1].odometro_regreso);
+    return state.odo_inicio;
+  }
+
+  async function iniciarViaje(){
     setState({ saving:true, saveError:null });
     try {
       const f = state.viajeForm;
-      const ahora = new Date().toISOString();
       const { data, error } = await supabase.from('viajes_bodega').insert({
-        turno_id: state.turnoId, hora_salida_bodega: ahora, hora_regreso_centro: f.odo_regreso !== '' ? ahora : null,
-        odometro_salida: parseFloat(f.odo_salida), odometro_regreso: f.odo_regreso !== '' ? parseFloat(f.odo_regreso) : null,
+        turno_id: state.turnoId, hora_salida_bodega: new Date().toISOString(), hora_regreso_centro: null,
+        odometro_salida: parseFloat(f.odo_salida), odometro_regreso: null,
         scooters_cargados: parseInt(f.scooters, 10) || 0, baterias_cargadas: parseInt(f.baterias, 10) || 0,
       }).select().single();
       if (error) throw error;
       setState({ saving:false, saveError:null, viajes:[...state.viajes, data], screen:'active' });
+    } catch(e){
+      setState({ saving:false, saveError: e.message || String(e) });
+    }
+  }
+
+  async function actualizarViaje(){
+    setState({ saving:true, saveError:null });
+    try {
+      const f = state.viajeForm;
+      const patch = {
+        scooters_cargados: parseInt(f.scooters, 10) || 0,
+        baterias_cargadas: parseInt(f.baterias, 10) || 0,
+        odometro_salida: parseFloat(f.odo_salida),
+      };
+      if (f.odo_regreso !== ''){
+        patch.odometro_regreso = parseFloat(f.odo_regreso);
+      }
+      const { data, error } = await supabase.from('viajes_bodega').update(patch).eq('id', f.editId).select().single();
+      if (error) throw error;
+      setState({ saving:false, saveError:null, viajes: state.viajes.map(v => v.id === data.id ? data : v), screen:'active' });
+    } catch(e){
+      setState({ saving:false, saveError: e.message || String(e) });
+    }
+  }
+
+  async function finalizarViaje(){
+    const v = viajeEnCurso();
+    if (!v) return;
+    setState({ saving:true, saveError:null });
+    try {
+      const odoRegreso = parseFloat(state.viajeCierreForm.odo_regreso);
+      const { data, error } = await supabase.from('viajes_bodega').update({
+        odometro_regreso: odoRegreso, hora_regreso_centro: new Date().toISOString(),
+      }).eq('id', v.id).select().single();
+      if (error) throw error;
+      setState({ saving:false, saveError:null, viajes: state.viajes.map(x => x.id === data.id ? data : x), viajeCierreForm:{odo_regreso:''}, screen:'active' });
     } catch(e){
       setState({ saving:false, saveError: e.message || String(e) });
     }
@@ -624,6 +678,25 @@
       }).select().single();
       if (error) throw error;
       setState({ saving:false, saveError:null, gastos:[...state.gastos, data], screen:'active' });
+    } catch(e){
+      setState({ saving:false, saveError: e.message || String(e) });
+    }
+  }
+
+  async function actualizarGasto(){
+    setState({ saving:true, saveError:null });
+    try {
+      const f = state.gastoForm;
+      const fotoUrl = f.foto ? await uploadFoto(f.foto, `gastos/${state.turnoId}-${Date.now()}`) : f.fotoExistenteUrl;
+      const patch = {
+        tipo: f.tipo, monto: parseFloat(f.monto) || 0,
+        litros: f.tipo === 'combustible' ? (parseFloat(f.litros) || null) : null,
+        odometro_al_cargar: f.tipo === 'combustible' ? (parseFloat(f.odo) || null) : null,
+        boleta_foto_url: fotoUrl,
+      };
+      const { data, error } = await supabase.from('gastos').update(patch).eq('id', f.editId).select().single();
+      if (error) throw error;
+      setState({ saving:false, saveError:null, gastos: state.gastos.map(g => g.id === data.id ? data : g), screen:'active' });
     } catch(e){
       setState({ saving:false, saveError: e.message || String(e) });
     }
@@ -670,7 +743,9 @@
       case 'quincenal': return quincenalScreen();
       case 'active': return activeScreen();
       case 'viaje-form': return viajeFormScreen();
+      case 'viaje-cerrar': return viajeCierreScreen();
       case 'gasto-form': return gastoFormScreen();
+      case 'gasto-confirm': return gastoConfirmScreen();
       case 'close-readings': return closeReadingsScreen();
       case 'checklist-post': return checklistScreen('post');
       case 'summary': return summaryScreen();
@@ -835,6 +910,7 @@
   function activeScreen(){
     const v = state.vehiculo;
     const totalGastos = state.gastos.reduce((s,x) => s + (parseFloat(x.monto)||0), 0);
+    const enCurso = viajeEnCurso();
     return `
       <div class="section">
         <div class="badge badge-ok" style="margin-bottom:14px;">● Turno en curso</div>
@@ -848,12 +924,19 @@
           <div class="stat"><div class="stat-label">Viajes</div><div class="stat-value">${state.viajes.length}</div></div>
           <div class="stat"><div class="stat-label">Gastos</div><div class="stat-value">$${totalGastos.toLocaleString('es-CL')}</div></div>
         </div>
+        ${enCurso ? `
+          <div class="card" style="border-color:var(--warning);">
+            <div class="badge badge-warn" style="margin-bottom:8px;">🚚 Viaje en curso</div>
+            <div style="font-size:13px; color:var(--text-dim); margin-bottom:12px;">${enCurso.scooters_cargados||0} scooters · ${enCurso.baterias_cargadas||0} baterías · salió con ${Number(enCurso.odometro_salida).toLocaleString('es-CL')} km</div>
+            <button class="btn btn-primary" id="btn-finalizar-viaje-activo">Finalizar viaje</button>
+          </div>
+        ` : ''}
         <div class="btn-row">
-          <button class="btn btn-secondary" id="btn-nuevo-viaje">+ Viaje</button>
+          <button class="btn btn-secondary" id="btn-nuevo-viaje" ${enCurso ? 'disabled' : ''}>${enCurso ? 'Viaje en curso…' : '+ Iniciar viaje'}</button>
           <button class="btn btn-secondary" id="btn-nuevo-gasto">+ Gasto</button>
         </div>
         ${renderLogList()}
-        <button class="btn btn-danger" id="btn-cerrar-turno" style="margin-top:8px;">Cerrar Turno</button>
+        <button class="btn btn-danger" id="btn-cerrar-turno" style="margin-top:8px;" ${enCurso ? 'disabled' : ''}>${enCurso ? 'Finaliza el viaje para cerrar turno' : 'Cerrar Turno'}</button>
       </div>
     `;
   }
@@ -863,34 +946,75 @@
     if (items.length === 0) return `<div class="empty-state">Aún no registras viajes ni gastos.</div>`;
     return items.map(it => {
       if (it.tipo === 'viaje'){
-        const km = (parseFloat(it.data.odometro_regreso) - parseFloat(it.data.odometro_salida)) || 0;
-        return `<div class="log-item"><div class="log-top"><span class="log-title">Viaje a bodega</span><span class="log-meta">${km.toFixed(0)} km</span></div><div class="log-meta">${it.data.scooters_cargados || 0} scooters · ${it.data.baterias_cargadas || 0} baterías</div></div>`;
+        const enCursoItem = it.data.odometro_regreso === null || it.data.odometro_regreso === undefined;
+        const km = enCursoItem ? null : (parseFloat(it.data.odometro_regreso) - parseFloat(it.data.odometro_salida));
+        return `<div class="log-item" data-edit-viaje="${it.data.id}" style="cursor:pointer;">
+          <div class="log-top">
+            <span class="log-title">Viaje a bodega</span>
+            <span class="log-meta">${enCursoItem ? '<span class="badge badge-warn" style="padding:2px 8px;">En curso</span>' : km.toFixed(0) + ' km'}</span>
+          </div>
+          <div class="log-meta">${it.data.scooters_cargados || 0} scooters · ${it.data.baterias_cargadas || 0} baterías</div>
+        </div>`;
       }
-      return `<div class="log-item"><div class="log-top"><span class="log-title">${it.data.tipo}</span><span class="log-meta">$${(parseFloat(it.data.monto)||0).toLocaleString('es-CL')}</span></div></div>`;
+      return `<div class="log-item" data-edit-gasto="${it.data.id}" style="cursor:pointer;">
+        <div class="log-top"><span class="log-title">${TIPO_GASTO_LABEL[it.data.tipo] || it.data.tipo}</span><span class="log-meta">$${(parseFloat(it.data.monto)||0).toLocaleString('es-CL')}</span></div>
+        ${it.data.litros ? `<div class="log-meta">${it.data.litros} L · odómetro ${Number(it.data.odometro_al_cargar).toLocaleString('es-CL')}</div>` : ''}
+      </div>`;
     }).join('');
   }
 
   function viajeFormScreen(){
     const f = state.viajeForm;
+    const esEdicion = !!f.editId;
+    const mostrarRegreso = esEdicion && f.odo_regreso !== '';
     const odoIni = parseFloat(state.odo_inicio);
     const odoSalida = parseFloat(f.odo_salida);
-    const odoRegreso = parseFloat(f.odo_regreso);
+    const odoRegreso = f.odo_regreso !== '' ? parseFloat(f.odo_regreso) : null;
+
     let alertHtml = '';
-    if (!isNaN(odoSalida) && odoSalida < odoIni) alertHtml += `<div class="alert">⚠ El odómetro de salida no puede ser menor al inicio.</div>`;
-    if (!isNaN(odoRegreso) && !isNaN(odoSalida) && odoRegreso < odoSalida) alertHtml += `<div class="alert">⚠ El odómetro de regreso no puede ser menor al de salida.</div>`;
-    const bloquea = state.saving || f.odo_salida === '' || f.odo_regreso === '' || odoSalida < odoIni || odoRegreso < odoSalida;
+    if (!isNaN(odoSalida) && odoSalida < odoIni) alertHtml += `<div class="alert">⚠ El odómetro de salida no puede ser menor al inicio del turno (${Number(odoIni).toLocaleString('es-CL')} km).</div>`;
+    if (odoRegreso !== null && !isNaN(odoSalida) && odoRegreso < odoSalida) alertHtml += `<div class="alert">⚠ El odómetro de regreso no puede ser menor al de salida.</div>`;
+
+    const bloquea = state.saving || f.odo_salida === '' || (!isNaN(odoSalida) && odoSalida < odoIni) ||
+      (mostrarRegreso && (f.odo_regreso === '' || odoRegreso < odoSalida));
 
     return `
       <div class="section">
         <span class="link-back" data-back="active">‹ Volver</span>
-        <div class="eyebrow" style="margin-bottom:14px;">Registrar viaje a bodega</div>
+        <div class="eyebrow" style="margin-bottom:14px;">${esEdicion ? 'Editar viaje a bodega' : 'Iniciar viaje a bodega'}</div>
         ${saveErrorHtml()}
         <label>Scooters cargados</label><input type="text" inputmode="numeric" id="v_scooters" value="${f.scooters}">
         <label>Baterías cargadas</label><input type="text" inputmode="numeric" id="v_baterias" value="${f.baterias}">
         <label>Odómetro de salida (km)</label><input type="text" inputmode="decimal" id="v_odo_salida" value="${f.odo_salida}">
-        <label>Odómetro de regreso (km)</label><input type="text" inputmode="decimal" id="v_odo_regreso" value="${f.odo_regreso}">
+        ${mostrarRegreso ? `<label>Odómetro de regreso (km)</label><input type="text" inputmode="decimal" id="v_odo_regreso" value="${f.odo_regreso}">` : ''}
         ${alertHtml}
-        <button class="btn btn-primary" id="btn-guardar-viaje" ${bloquea ? 'disabled' : ''}>${state.saving ? 'Guardando…' : 'Guardar viaje'}</button>
+        <button class="btn btn-primary" id="btn-guardar-viaje" ${bloquea ? 'disabled' : ''}>${state.saving ? 'Guardando…' : (esEdicion ? 'Guardar cambios' : 'Iniciar Viaje')}</button>
+      </div>
+    `;
+  }
+
+  function viajeCierreScreen(){
+    const v = viajeEnCurso();
+    if (!v){
+      return `<div class="section"><div class="alert">No hay ningún viaje en curso.</div><span class="link-back" data-back="active">‹ Volver</span></div>`;
+    }
+    const f = state.viajeCierreForm;
+    const odoRegreso = f.odo_regreso !== '' ? parseFloat(f.odo_regreso) : null;
+    let alertHtml = '';
+    if (odoRegreso !== null && odoRegreso < v.odometro_salida) alertHtml = `<div class="alert">⚠ El odómetro de regreso no puede ser menor al de salida (${Number(v.odometro_salida).toLocaleString('es-CL')} km).</div>`;
+    const bloquea = state.saving || f.odo_regreso === '' || (odoRegreso !== null && odoRegreso < v.odometro_salida);
+
+    return `
+      <div class="section">
+        <span class="link-back" data-back="active">‹ Volver</span>
+        <div class="eyebrow" style="margin-bottom:4px;">Finalizar viaje a bodega</div>
+        <h2 style="font-size:17px; margin-bottom:14px;">${v.scooters_cargados||0} scooters · ${v.baterias_cargadas||0} baterías</h2>
+        ${saveErrorHtml()}
+        <div class="gauge-cluster"><div class="gauge"><div class="gauge-label">Odómetro de salida</div><div class="gauge-value">${Number(v.odometro_salida).toLocaleString('es-CL')}</div></div></div>
+        <label>Odómetro de regreso (km)</label>
+        <input type="text" inputmode="decimal" id="vc_odo_regreso" value="${f.odo_regreso}" placeholder="${v.odometro_salida}">
+        ${alertHtml}
+        <button class="btn btn-primary" id="btn-finalizar-viaje" ${bloquea ? 'disabled' : ''}>${state.saving ? 'Guardando…' : 'Finalizar Viaje'}</button>
       </div>
     `;
   }
@@ -898,20 +1022,52 @@
   function gastoFormScreen(){
     const f = state.gastoForm;
     const v = state.vehiculo;
-    const bloquea = state.saving || f.monto === '' || (f.tipo === 'combustible' && (f.litros === '' || parseFloat(f.litros) > v.capacidad_estanque_l));
+    const esEdicion = !!f.editId;
+    const litrosExcede = f.tipo === 'combustible' && f.litros !== '' && parseFloat(f.litros) > v.capacidad_estanque_l;
+    const faltaFoto = !f.foto && !f.fotoExistenteUrl;
+    const bloquea = state.saving || f.monto === '' || faltaFoto ||
+      (f.tipo === 'combustible' && (f.litros === '' || f.odo === '' || litrosExcede));
+
     return `
       <div class="section">
         <span class="link-back" data-back="active">‹ Volver</span>
-        <div class="eyebrow" style="margin-bottom:14px;">Registrar gasto</div>
+        <div class="eyebrow" style="margin-bottom:14px;">${esEdicion ? 'Editar gasto' : 'Registrar gasto'}</div>
         ${saveErrorHtml()}
         <label>Tipo de gasto</label>
         <select id="g_tipo">
-          ${[{id:'combustible',label:'Combustible'},{id:'peaje',label:'Peaje'},{id:'mantencion',label:'Mantención'},{id:'otro',label:'Otro'}].map(t => `<option value="${t.id}" ${f.tipo===t.id?'selected':''}>${t.label}</option>`).join('')}
+          ${Object.entries(TIPO_GASTO_LABEL).map(([id,label]) => `<option value="${id}" ${f.tipo===id?'selected':''}>${label}</option>`).join('')}
         </select>
-        <label>Monto ($)</label><input type="text" inputmode="numeric" id="g_monto" value="${f.monto}">
-        ${f.tipo === 'combustible' ? `<label>Litros cargados</label><input type="text" inputmode="decimal" id="g_litros" value="${f.litros}"><label>Odómetro al cargar (km)</label><input type="text" inputmode="decimal" id="g_odo" value="${f.odo}">` : ''}
-        ${fotoField('g_foto', 'Foto de la boleta', f.foto)}
-        <button class="btn btn-primary" id="btn-guardar-gasto" ${bloquea ? 'disabled' : ''}>Guardar gasto</button>
+        <label>Monto ($) *</label><input type="text" inputmode="numeric" id="g_monto" value="${f.monto}">
+        ${f.tipo === 'combustible' ? `
+          <label>Litros cargados *</label><input type="text" inputmode="decimal" id="g_litros" value="${f.litros}">
+          <label>Odómetro al cargar (km) *</label><input type="text" inputmode="decimal" id="g_odo" value="${f.odo}">
+          ${litrosExcede ? `<div class="alert">⚠ ${f.litros} L excede la capacidad del estanque (${v.capacidad_estanque_l} L).</div>` : ''}
+        ` : ''}
+        ${fotoField('g_foto', 'Foto de la boleta *', f.foto, f.fotoExistenteUrl)}
+        <button class="btn btn-primary" id="btn-revisar-gasto" ${bloquea ? 'disabled' : ''}>Revisar y Confirmar</button>
+      </div>
+    `;
+  }
+
+  function gastoConfirmScreen(){
+    const f = state.gastoForm;
+    const src = f.foto ? previewUrl(f.foto) : f.fotoExistenteUrl;
+    return `
+      <div class="section">
+        <span class="link-back" data-back="gasto-form">‹ Editar datos</span>
+        <div class="eyebrow" style="margin-bottom:14px;">Confirmar gasto</div>
+        ${saveErrorHtml()}
+        <div class="card">
+          <div class="summary-row"><span>Tipo</span><span>${TIPO_GASTO_LABEL[f.tipo] || f.tipo}</span></div>
+          <div class="summary-row"><span>Monto</span><span>$${(parseFloat(f.monto)||0).toLocaleString('es-CL')}</span></div>
+          ${f.tipo === 'combustible' ? `
+            <div class="summary-row"><span>Litros</span><span>${f.litros} L</span></div>
+            <div class="summary-row"><span>Odómetro</span><span>${Number(f.odo).toLocaleString('es-CL')} km</span></div>
+          ` : ''}
+        </div>
+        ${src ? `<img src="${src}" style="width:100%; border-radius:10px; margin-bottom:14px; border:1px solid var(--border);">` : ''}
+        <p style="font-size:12px; color:var(--text-dim); margin-bottom:16px;">Revisa que los datos estén correctos antes de guardar. Si te equivocas, siempre puedes volver a abrir este gasto desde el listado del turno para corregirlo.</p>
+        <button class="btn btn-primary" id="btn-confirmar-gasto" ${state.saving ? 'disabled' : ''}>${state.saving ? 'Guardando…' : 'Confirmar y Guardar'}</button>
       </div>
     `;
   }
@@ -975,6 +1131,7 @@
     bindNumericInput('v_baterias', v => setStateField('viajeForm','baterias', v), false);
     bindNumericInput('v_odo_salida', v => setStateField('viajeForm','odo_salida', v), true);
     bindNumericInput('v_odo_regreso', v => setStateField('viajeForm','odo_regreso', v), true);
+    bindNumericInput('vc_odo_regreso', v => setStateField('viajeCierreForm','odo_regreso', v), true);
     bindNumericInput('g_monto', v => setStateField('gastoForm','monto', v), false);
     bindNumericInput('g_litros', v => setStateField('gastoForm','litros', v), true);
     bindNumericInput('g_odo', v => setStateField('gastoForm','odo', v), true);
@@ -1039,14 +1196,66 @@
     });
 
     const btnNuevoViaje = document.getElementById('btn-nuevo-viaje');
-    if (btnNuevoViaje) btnNuevoViaje.addEventListener('click', () => setState({ screen:'viaje-form', saveError:null, viajeForm:{ scooters:'', baterias:'', odo_salida:'', odo_regreso:'' } }));
+    if (btnNuevoViaje) btnNuevoViaje.addEventListener('click', () => setState({
+      screen:'viaje-form', saveError:null,
+      viajeForm:{ scooters:'', baterias:'', odo_salida: odoSugeridoNuevoViaje(), odo_regreso:'', editId:null }
+    }));
     const btnGuardarViaje = document.getElementById('btn-guardar-viaje');
-    if (btnGuardarViaje) btnGuardarViaje.addEventListener('click', guardarViaje);
+    if (btnGuardarViaje) btnGuardarViaje.addEventListener('click', () => {
+      if (state.viajeForm.editId) actualizarViaje(); else iniciarViaje();
+    });
+
+    const btnFinalizarViajeActivo = document.getElementById('btn-finalizar-viaje-activo');
+    if (btnFinalizarViajeActivo) btnFinalizarViajeActivo.addEventListener('click', () => setState({
+      screen:'viaje-cerrar', saveError:null, viajeCierreForm:{ odo_regreso:'' }
+    }));
+    const btnFinalizarViaje = document.getElementById('btn-finalizar-viaje');
+    if (btnFinalizarViaje) btnFinalizarViaje.addEventListener('click', finalizarViaje);
+
+    document.querySelectorAll('[data-edit-viaje]').forEach(el => {
+      el.addEventListener('click', () => {
+        const v = state.viajes.find(x => x.id === el.dataset.editViaje);
+        if (!v) return;
+        setState({
+          screen:'viaje-form', saveError:null,
+          viajeForm: {
+            scooters: String(v.scooters_cargados ?? ''),
+            baterias: String(v.baterias_cargadas ?? ''),
+            odo_salida: String(v.odometro_salida ?? ''),
+            odo_regreso: (v.odometro_regreso !== null && v.odometro_regreso !== undefined) ? String(v.odometro_regreso) : '',
+            editId: v.id,
+          }
+        });
+      });
+    });
 
     const btnNuevoGasto = document.getElementById('btn-nuevo-gasto');
-    if (btnNuevoGasto) btnNuevoGasto.addEventListener('click', () => setState({ screen:'gasto-form', saveError:null, gastoForm:{ tipo:'combustible', monto:'', litros:'', odo:'', foto:null } }));
-    const btnGuardarGasto = document.getElementById('btn-guardar-gasto');
-    if (btnGuardarGasto) btnGuardarGasto.addEventListener('click', guardarGasto);
+    if (btnNuevoGasto) btnNuevoGasto.addEventListener('click', () => setState({
+      screen:'gasto-form', saveError:null,
+      gastoForm:{ tipo:'combustible', monto:'', litros:'', odo:'', foto:null, editId:null, fotoExistenteUrl:null }
+    }));
+    const btnRevisarGasto = document.getElementById('btn-revisar-gasto');
+    if (btnRevisarGasto) btnRevisarGasto.addEventListener('click', () => setState({ screen:'gasto-confirm', saveError:null }));
+    const btnConfirmarGasto = document.getElementById('btn-confirmar-gasto');
+    if (btnConfirmarGasto) btnConfirmarGasto.addEventListener('click', () => {
+      if (state.gastoForm.editId) actualizarGasto(); else guardarGasto();
+    });
+
+    document.querySelectorAll('[data-edit-gasto]').forEach(el => {
+      el.addEventListener('click', () => {
+        const g = state.gastos.find(x => x.id === el.dataset.editGasto);
+        if (!g) return;
+        setState({
+          screen:'gasto-form', saveError:null,
+          gastoForm: {
+            tipo: g.tipo, monto: String(g.monto ?? ''),
+            litros: (g.litros !== null && g.litros !== undefined) ? String(g.litros) : '',
+            odo: (g.odometro_al_cargar !== null && g.odometro_al_cargar !== undefined) ? String(g.odometro_al_cargar) : '',
+            foto:null, editId: g.id, fotoExistenteUrl: g.boleta_foto_url || null,
+          }
+        });
+      });
+    });
 
     const btnCerrar = document.getElementById('btn-cerrar-turno');
     if (btnCerrar) btnCerrar.addEventListener('click', () => setState({ screen:'close-readings', odo_fin:'', odo_fin_foto:null, checklist_post:{}, checklist_post_fotos:{}, checklist_post_comentarios:{} }));
