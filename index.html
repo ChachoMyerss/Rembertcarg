@@ -98,7 +98,7 @@
     display:block; font-size:12px; color:var(--text-dim);
     margin-bottom:6px; letter-spacing:0.3px;
   }
-  input[type=text], input[type=number], select{
+  input[type=text], input[type=number], select, textarea{
     width:100%;
     background:#0D0F13;
     border:1px solid var(--border);
@@ -112,7 +112,8 @@
     appearance:none;
   }
   select{font-family:'Inter',sans-serif; font-size:15px;}
-  input:focus, select:focus{outline:2px solid var(--accent); border-color:transparent;}
+  textarea{font-family:'Inter',sans-serif; font-size:14px; resize:vertical; min-height:80px;}
+  input:focus, select:focus, textarea:focus{outline:2px solid var(--accent); border-color:transparent;}
 
   .badge{
     display:inline-flex; align-items:center; gap:6px;
@@ -144,20 +145,19 @@
     color:var(--text-dim); margin:16px 0 8px; font-family:'Oswald',sans-serif;
   }
   .checklist-item{
-    padding:10px 0; border-bottom:1px solid var(--border);
+    padding:14px 0; border-bottom:1px solid var(--border);
   }
   .checklist-item-top{display:flex; justify-content:space-between; align-items:center; gap:8px;}
   .item-name{font-size:14px;}
-  .item-crit{color:var(--danger); font-size:10px; letter-spacing:1px; margin-left:6px;}
   .seg{display:flex; gap:4px; flex-shrink:0;}
   .seg-btn{
     font-family:'Oswald',sans-serif; font-size:11px; font-weight:600;
-    padding:6px 10px; border-radius:6px; border:1px solid var(--border);
+    padding:6px 14px; border-radius:6px; border:1px solid var(--border);
     background:transparent; color:var(--text-dim); cursor:pointer;
   }
   .seg-btn.active-ok{background:var(--success-dim); color:var(--success); border-color:var(--success);}
-  .seg-btn.active-obs{background:var(--warning-dim); color:var(--warning); border-color:var(--warning);}
-  .seg-btn.active-falla{background:var(--danger-dim); color:var(--danger); border-color:var(--danger);}
+  .seg-btn.active-nc{background:var(--warning-dim); color:var(--warning); border-color:var(--warning);}
+  .nc-box{background:var(--surface-alt); padding:12px; border-radius:8px; margin-top:10px;}
 
   .alert{
     display:flex; gap:10px; align-items:flex-start;
@@ -191,11 +191,11 @@
   .stat-label{font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin-bottom:4px;}
   .stat-value{font-family:'JetBrains Mono',monospace; font-size:18px; font-weight:700;}
 
-  /* --- Fotos --- */
+  /* --- Fotos y Galería Quincenal --- */
   .foto-block{margin-bottom:14px;}
   .foto-row{display:flex; align-items:center; gap:10px;}
   .foto-btn{
-    display:inline-flex; align-items:center; gap:6px;
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
     font-family:'Oswald',sans-serif; font-size:12px; font-weight:600; letter-spacing:0.5px;
     text-transform:uppercase; background:var(--surface-alt); border:1px solid var(--border);
     color:var(--text); padding:9px 12px; border-radius:7px; cursor:pointer;
@@ -203,12 +203,10 @@
   .foto-thumb{
     width:52px; height:52px; object-fit:cover; border-radius:7px; border:1px solid var(--border);
   }
-  .foto-btn-mini{
-    width:30px; height:30px; border-radius:7px; border:1px solid var(--border);
-    background:var(--surface-alt); color:var(--text-dim); font-size:14px;
-    display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
-  }
-  .foto-btn-mini.has-foto{border-color:var(--accent); color:var(--accent);}
+  .repo-box{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:14px;}
+  .repo-title{font-size:14px; font-weight:600; margin-bottom:10px;}
+  .photo-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(70px, 1fr)); gap:8px; margin-top:10px;}
+  .photo-grid img{width:100%; height:70px; object-fit:cover; border-radius:6px; border:1px solid var(--border);}
 
   /* --- Estados de carga / error --- */
   .center-screen{
@@ -234,12 +232,6 @@
 
   // =====================================================================
   // CONFIGURACIÓN DE SUPABASE
-  // Reemplaza estos dos valores por los de tu proyecto (Project Settings →
-  // API). El anon key es público y seguro de exponer en el frontend: toda
-  // la seguridad real la dan las políticas RLS definidas en schema.sql.
-  // =====================================================================
-// =====================================================================
-  // CONFIGURACIÓN DE SUPABASE
   // =====================================================================
   const SUPABASE_URL = 'https://jxjevmykipkxdfdczznt.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4amV2bXlraXBreGRmZGN6em50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MzA4MzQsImV4cCI6MjA5NzQwNjgzNH0.zJbYDqJi1YcbbxHMz6DFXdMxWhF4k_WxPcuj4dXmeX0';
@@ -253,30 +245,28 @@
   // =====================================================================
   // ESTADO
   // =====================================================================
-
-
-  // =====================================================================
-  // ESTADO
-  // =====================================================================
   let state = {
     loading: true,
     loadError: null,
     screen: 'select-vehicle',
 
-    chofer: null,          // { id, nombre, rol }
-    vehiculos: [],         // desde tabla vehiculos
-    checklistItems: [],    // desde tabla checklist_items
+    chofer: null,
+    vehiculos: [],
+    checklistItems: [],
 
     vehiculo: null,
-    ultimoOdometro: null,  // odometro_fin del último turno cerrado de este camión (null = sin historial)
+    ultimoOdometro: null,
     cargandoUltimoOdometro: false,
 
     odo_inicio: '', odo_inicio_foto: null,
     odo_fin: '', odo_fin_foto: null,
 
-    checklist_pre: {}, checklist_pre_fotos: {},
-    checklist_post: {}, checklist_post_fotos: {},
-    overrideSupervisor: false,
+    // Checklist adaptado a OK/NC
+    checklist_pre: {}, checklist_pre_fotos: {}, checklist_pre_comentarios: {},
+    checklist_post: {}, checklist_post_fotos: {}, checklist_post_comentarios: {},
+    
+    // Repositorio Quincenal
+    quincenal: { puertas:[], parachoques:[], focos:[], espejos:[], costados:[] },
 
     turnoId: null,
     viajes: [],
@@ -301,7 +291,7 @@
         selStart = active.selectionStart;
         selEnd = active.selectionEnd;
       }
-    } catch(e){ /* algunos tipos de input no soportan selección; se ignora */ }
+    } catch(e){ /* ignorado */ }
 
     app.innerHTML = `
       <div class="topbar">
@@ -341,20 +331,6 @@
     scheduleRender();
   }
 
-  // =====================================================================
-  // NÚMEROS: por qué se corrige acá el bug de "dígitos al revés"
-  // ---------------------------------------------------------------------
-  // Los campos usaban <input type="number">. Ese tipo de input NO soporta
-  // selectionStart/selectionEnd en la mayoría de los navegadores (lanza una
-  // excepción al leerlos), y como render() se apoya en esas propiedades
-  // para recordar dónde estaba el cursor antes de redibujar el DOM, cada
-  // tecleo rompía silenciosamente esa lógica y el cursor volvía a la
-  // posición 0. El resultado visual: cada nuevo dígito se insertaba al
-  // principio en vez de al final, como si se escribiera al revés.
-  // Ahora los campos numéricos son <input type="text" inputmode="decimal">
-  // + un sanitizador que solo permite dígitos (y un punto decimal si
-  // corresponde), así el cursor se preserva de forma nativa y correcta.
-  // =====================================================================
   function sanitizeNumeric(raw, allowDecimal){
     let v = allowDecimal ? raw.replace(/[^0-9.]/g, '') : raw.replace(/[^0-9]/g, '');
     if (allowDecimal){
@@ -380,12 +356,6 @@
     });
   }
 
-  function bindInput(id, onChange){
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('input', e => onChange(e.target.value));
-  }
-
   // =====================================================================
   // FOTOS
   // =====================================================================
@@ -402,17 +372,10 @@
         <label>${label}</label>
         <div class="foto-row">
           <input type="file" accept="image/*" capture="environment" id="${id}" style="display:none;">
-          <label for="${id}" class="foto-btn">${file ? '🔁 Cambiar foto' : '📷 Adjuntar foto'}</label>
+          <label for="${id}" class="foto-btn">${file ? '🔁 Cambiar' : '📷 Adjuntar foto'}</label>
           ${file ? `<img src="${previewUrl(file)}" class="foto-thumb">` : ''}
         </div>
       </div>
-    `;
-  }
-
-  function fotoMiniButton(id, file){
-    return `
-      <input type="file" accept="image/*" capture="environment" id="${id}" style="display:none;">
-      <label for="${id}" class="foto-btn-mini ${file ? 'has-foto' : ''}" title="Adjuntar foto">📷</label>
     `;
   }
 
@@ -427,7 +390,7 @@
 
   async function uploadFoto(file, path){
     if (!file) return null;
-    if (!supabase) return null; // sin conexión configurada: se omite silenciosamente
+    if (!supabase) return null;
     const ext = (file.name && file.name.includes('.')) ? file.name.split('.').pop() : 'jpg';
     const fullPath = `${path}-${Date.now()}.${ext}`;
     const { error } = await supabase.storage.from(FOTOS_BUCKET).upload(fullPath, file, { upsert: false });
@@ -441,45 +404,24 @@
   // =====================================================================
   async function init(){
     if (!supabase){
-      setState({
-        loading:false,
-        loadError:'Falta configurar SUPABASE_URL y SUPABASE_ANON_KEY al inicio del script.'
-      });
+      setState({ loading:false, loadError:'Falta configurar SUPABASE_URL.' });
       return;
     }
     try {
       const { data: authData, error: authErr } = await supabase.auth.getUser();
-      if (authErr || !authData || !authData.user){
-        throw new Error('No hay una sesión activa. Inicia sesión antes de abrir este módulo.');
-      }
+      if (authErr || !authData || !authData.user) throw new Error('No hay sesión.');
 
-      const { data: perfil, error: perfilErr } = await supabase
-        .from('usuarios')
-        .select('id, nombre, rol')
-        .eq('auth_user_id', authData.user.id)
-        .maybeSingle();
+      const { data: perfil, error: perfilErr } = await supabase.from('usuarios').select('id, nombre, rol').eq('auth_user_id', authData.user.id).maybeSingle();
       if (perfilErr) throw perfilErr;
-      if (!perfil) throw new Error('Este usuario de Auth no está vinculado a un registro en la tabla "usuarios".');
-
-      const { data: vehiculos, error: vehErr } = await supabase
-        .from('vehiculos')
-        .select('*')
-        .eq('activo', true)
-        .order('patente');
+      
+      const { data: vehiculos, error: vehErr } = await supabase.from('vehiculos').select('*').eq('activo', true).order('patente');
       if (vehErr) throw vehErr;
 
-      const { data: items, error: itemsErr } = await supabase
-        .from('checklist_items')
-        .select('*')
-        .eq('activo', true)
-        .order('categoria');
+      const { data: items, error: itemsErr } = await supabase.from('checklist_items').select('*').eq('activo', true).order('categoria');
       if (itemsErr) throw itemsErr;
 
       setState({
-        loading:false,
-        chofer: perfil,
-        vehiculos: vehiculos || [],
-        checklistItems: items || [],
+        loading:false, chofer: perfil, vehiculos: vehiculos || [], checklistItems: items || [],
       });
     } catch(e){
       setState({ loading:false, loadError: e.message || String(e) });
@@ -489,24 +431,14 @@
   async function cargarUltimoOdometro(vehiculoId){
     setState({ cargandoUltimoOdometro: true });
     try {
-      const { data, error } = await supabase
-        .from('turnos')
-        .select('odometro_fin')
-        .eq('vehiculo_id', vehiculoId)
-        .in('estado', ['cerrado', 'con_discrepancia'])
-        .order('fecha_fin', { ascending:false })
-        .limit(1)
-        .maybeSingle();
+      const { data, error } = await supabase.from('turnos').select('odometro_fin').eq('vehiculo_id', vehiculoId).in('estado', ['cerrado', 'con_discrepancia']).order('fecha_fin', { ascending:false }).limit(1).maybeSingle();
       if (error) throw error;
       setState({ ultimoOdometro: data ? data.odometro_fin : 0, cargandoUltimoOdometro:false });
     } catch(e){
-      setState({ ultimoOdometro: 0, cargandoUltimoOdometro:false, saveError: 'No se pudo cargar el historial del camión: ' + (e.message||e) });
+      setState({ ultimoOdometro: 0, cargandoUltimoOdometro:false });
     }
   }
 
-  // =====================================================================
-  // VALIDACIONES DE UI (reflejan las mismas reglas de los triggers)
-  // =====================================================================
   function evalContinuidad(valorIngresado, ultimoValor){
     const v = parseFloat(valorIngresado);
     if (isNaN(v)) return { status:'empty' };
@@ -517,28 +449,17 @@
     return { status:'ok', diff };
   }
 
-  function checklistTieneFallaCritica(respuestas){
-    return state.checklistItems.some(it => it.es_critico && respuestas[it.id] === 'falla');
-  }
-
   // =====================================================================
   // ACCIONES CONTRA LA BASE DE DATOS
   // =====================================================================
   async function guardarChecklist(momento, turnoIdParaEnlazar){
     const respuestas = momento === 'pre' ? state.checklist_pre : state.checklist_post;
     const fotos = momento === 'pre' ? state.checklist_pre_fotos : state.checklist_post_fotos;
+    const comentarios = momento === 'pre' ? state.checklist_pre_comentarios : state.checklist_post_comentarios;
 
-    const { data: checklist, error: cErr } = await supabase
-      .from('checklists_realizados')
-      .insert({
-        turno_id: turnoIdParaEnlazar || null,
-        vehiculo_id: state.vehiculo.id,
-        chofer_id: state.chofer.id,
-        momento,
-        bloqueado_por_admin: state.overrideSupervisor,
-      })
-      .select()
-      .single();
+    const { data: checklist, error: cErr } = await supabase.from('checklists_realizados').insert({
+      turno_id: turnoIdParaEnlazar || null, vehiculo_id: state.vehiculo.id, chofer_id: state.chofer.id, momento
+    }).select().single();
     if (cErr) throw cErr;
 
     for (const item of state.checklistItems){
@@ -546,12 +467,10 @@
       if (!val) continue;
       const file = fotos[item.id];
       const fotoUrl = file ? await uploadFoto(file, `checklist/${checklist.id}/${item.id}`) : null;
-      const { error: rErr } = await supabase
-        .from('inspeccion_respuestas')
-        .insert({ checklist_id: checklist.id, item_id: item.id, estado: val, foto_url: fotoUrl });
-      if (rErr) throw rErr;
+      await supabase.from('inspeccion_respuestas').insert({ 
+        checklist_id: checklist.id, item_id: item.id, estado: val, comentario: comentarios[item.id] || null, foto_url: fotoUrl 
+      });
     }
-
     return checklist;
   }
 
@@ -559,34 +478,14 @@
     setState({ saving:true, saveError:null });
     try {
       const checklist = await guardarChecklist('pre', null);
-
-      const tieneFalla = checklistTieneFallaCritica(state.checklist_pre);
-      if (tieneFalla && !state.overrideSupervisor){
-        setState({ saving:false, saveError:'El checklist quedó registrado, pero tiene un ítem crítico en falla: no se puede iniciar el turno sin autorización de un supervisor.' });
-        return;
-      }
-
       const fotoOdoInicio = await uploadFoto(state.odo_inicio_foto, `turnos/odo-inicio-${state.vehiculo.id}`);
 
-      const { data: turno, error: tErr } = await supabase
-        .from('turnos')
-        .insert({
-          chofer_id: state.chofer.id,
-          vehiculo_id: state.vehiculo.id,
-          odometro_inicio: parseFloat(state.odo_inicio),
-          foto_odometro_inicio_url: fotoOdoInicio,
-          discrepancia_justificada: false,
-        })
-        .select()
-        .single();
+      const { data: turno, error: tErr } = await supabase.from('turnos').insert({
+        chofer_id: state.chofer.id, vehiculo_id: state.vehiculo.id, odometro_inicio: parseFloat(state.odo_inicio), foto_odometro_inicio_url: fotoOdoInicio
+      }).select().single();
       if (tErr) throw tErr;
 
-      const { error: linkErr } = await supabase
-        .from('checklists_realizados')
-        .update({ turno_id: turno.id })
-        .eq('id', checklist.id);
-      if (linkErr) throw linkErr;
-
+      await supabase.from('checklists_realizados').update({ turno_id: turno.id }).eq('id', checklist.id);
       setState({ saving:false, saveError:null, turnoId: turno.id, screen:'active' });
     } catch(e){
       setState({ saving:false, saveError: e.message || String(e) });
@@ -597,25 +496,11 @@
     setState({ saving:true, saveError:null });
     try {
       await guardarChecklist('post', state.turnoId);
-
-      const tieneFalla = checklistTieneFallaCritica(state.checklist_post);
-      if (tieneFalla && !state.overrideSupervisor){
-        setState({ saving:false, saveError:'El checklist quedó registrado, pero tiene un ítem crítico en falla: no se puede cerrar el turno sin autorización de un supervisor.' });
-        return;
-      }
-
       const fotoOdoFin = await uploadFoto(state.odo_fin_foto, `turnos/odo-fin-${state.turnoId}`);
 
-      const { error: tErr } = await supabase
-        .from('turnos')
-        .update({
-          odometro_fin: parseFloat(state.odo_fin),
-          foto_odometro_fin_url: fotoOdoFin,
-          fecha_fin: new Date().toISOString(),
-          estado: 'cerrado',
-        })
-        .eq('id', state.turnoId);
-      if (tErr) throw tErr;
+      await supabase.from('turnos').update({
+        odometro_fin: parseFloat(state.odo_fin), foto_odometro_fin_url: fotoOdoFin, fecha_fin: new Date().toISOString(), estado: 'cerrado'
+      }).eq('id', state.turnoId);
 
       setState({ saving:false, saveError:null, screen:'summary' });
     } catch(e){
@@ -628,19 +513,11 @@
     try {
       const f = state.viajeForm;
       const ahora = new Date().toISOString();
-      const { data, error } = await supabase
-        .from('viajes_bodega')
-        .insert({
-          turno_id: state.turnoId,
-          hora_salida_bodega: ahora,
-          hora_regreso_centro: f.odo_regreso !== '' ? ahora : null,
-          odometro_salida: parseFloat(f.odo_salida),
-          odometro_regreso: f.odo_regreso !== '' ? parseFloat(f.odo_regreso) : null,
-          scooters_cargados: parseInt(f.scooters, 10) || 0,
-          baterias_cargadas: parseInt(f.baterias, 10) || 0,
-        })
-        .select()
-        .single();
+      const { data, error } = await supabase.from('viajes_bodega').insert({
+        turno_id: state.turnoId, hora_salida_bodega: ahora, hora_regreso_centro: f.odo_regreso !== '' ? ahora : null,
+        odometro_salida: parseFloat(f.odo_salida), odometro_regreso: f.odo_regreso !== '' ? parseFloat(f.odo_regreso) : null,
+        scooters_cargados: parseInt(f.scooters, 10) || 0, baterias_cargadas: parseInt(f.baterias, 10) || 0,
+      }).select().single();
       if (error) throw error;
       setState({ saving:false, saveError:null, viajes:[...state.viajes, data], screen:'active' });
     } catch(e){
@@ -653,23 +530,42 @@
     try {
       const f = state.gastoForm;
       const fotoUrl = f.foto ? await uploadFoto(f.foto, `gastos/${state.turnoId}-${Date.now()}`) : null;
-      const { data, error } = await supabase
-        .from('gastos')
-        .insert({
-          turno_id: state.turnoId,
-          vehiculo_id: state.vehiculo.id,
-          tipo: f.tipo,
-          monto: parseFloat(f.monto) || 0,
-          litros: f.tipo === 'combustible' ? (parseFloat(f.litros) || null) : null,
-          odometro_al_cargar: f.tipo === 'combustible' ? (parseFloat(f.odo) || null) : null,
-          boleta_foto_url: fotoUrl,
-        })
-        .select()
-        .single();
+      const { data, error } = await supabase.from('gastos').insert({
+        turno_id: state.turnoId, vehiculo_id: state.vehiculo.id, tipo: f.tipo, monto: parseFloat(f.monto) || 0,
+        litros: f.tipo === 'combustible' ? (parseFloat(f.litros) || null) : null, odometro_al_cargar: f.tipo === 'combustible' ? (parseFloat(f.odo) || null) : null, boleta_foto_url: fotoUrl,
+      }).select().single();
       if (error) throw error;
       setState({ saving:false, saveError:null, gastos:[...state.gastos, data], screen:'active' });
     } catch(e){
       setState({ saving:false, saveError: e.message || String(e) });
+    }
+  }
+
+  async function guardarQuincenal(){
+    setState({ saving:true, saveError:null });
+    try {
+      const links = { puertas:[], parachoques:[], focos:[], espejos:[], costados:[] };
+      const catUrls = Object.keys(links);
+      
+      for(const cat of catUrls){
+        const files = state.quincenal[cat] || [];
+        for(const f of files){
+          const url = await uploadFoto(f, `quincenal/${state.vehiculo.id}/${cat}`);
+          if(url) links[cat].push(url);
+        }
+      }
+
+      const { error } = await supabase.from('registro_fotografico_quincenal').insert({
+        vehiculo_id: state.vehiculo.id, chofer_id: state.chofer.id,
+        fotos_puertas: links.puertas, fotos_parachoques: links.parachoques,
+        fotos_focos: links.focos, fotos_espejos: links.espejos, fotos_costados: links.costados
+      });
+      if (error) throw error;
+
+      alert("Registro de carrocería guardado con éxito.");
+      setState({ saving:false, screen:'start-readings', quincenal:{ puertas:[], parachoques:[], focos:[], espejos:[], costados:[] } });
+    } catch(e) {
+      setState({ saving:false, saveError: "Error al subir fotos: " + e.message });
     }
   }
 
@@ -683,6 +579,7 @@
       case 'select-vehicle': return selectVehicleScreen();
       case 'start-readings': return startReadingsScreen();
       case 'checklist-pre': return checklistScreen('pre');
+      case 'quincenal': return quincenalScreen();
       case 'active': return activeScreen();
       case 'viaje-form': return viajeFormScreen();
       case 'gasto-form': return gastoFormScreen();
@@ -694,25 +591,11 @@
   }
 
   function loadingScreen(){
-    return `
-      <div class="center-screen">
-        <div class="spinner"></div>
-        <div style="font-size:13px; color:var(--text-dim);">Cargando datos de la flota…</div>
-      </div>
-    `;
+    return `<div class="center-screen"><div class="spinner"></div><div style="font-size:13px; color:var(--text-dim);">Cargando datos…</div></div>`;
   }
 
   function errorScreen(){
-    return `
-      <div class="section">
-        <div class="alert">⚠ ${state.loadError}</div>
-        <p style="font-size:13px; color:var(--text-dim);">
-          Revisa la configuración de SUPABASE_URL / SUPABASE_ANON_KEY al inicio del script,
-          que exista sesión de Supabase Auth activa, y que tu usuario esté vinculado en la
-          tabla <code>usuarios</code> (columna <code>auth_user_id</code>).
-        </p>
-      </div>
-    `;
+    return `<div class="section"><div class="alert">⚠ ${state.loadError}</div></div>`;
   }
 
   function saveErrorHtml(){
@@ -724,14 +607,10 @@
       <div class="section">
         <div class="eyebrow" style="margin-bottom:10px;">Paso 1 de 3 · Seleccionar camión</div>
         ${saveErrorHtml()}
-        ${state.vehiculos.length === 0 ? `<div class="empty-state">No hay camiones activos registrados.</div>` : ''}
         <div class="veh-list">
           ${state.vehiculos.map(v => `
             <div class="veh-item" data-vehiculo="${v.id}">
-              <div>
-                <div class="veh-patente">${v.patente}</div>
-                <div class="veh-sub">${[v.marca, v.modelo].filter(Boolean).join(' ')}</div>
-              </div>
+              <div><div class="veh-patente">${v.patente}</div><div class="veh-sub">${[v.marca, v.modelo].filter(Boolean).join(' ')}</div></div>
               <div class="chev">›</div>
             </div>
           `).join('')}
@@ -745,11 +624,7 @@
     const ultimo = state.ultimoOdometro;
     const odoCheck = evalContinuidad(state.odo_inicio, ultimo);
     let alertHtml = '';
-    if (odoCheck.status === 'error'){
-      alertHtml += `<div class="alert">⚠ El odómetro no puede ser menor al último cierre (${Number(ultimo).toLocaleString('es-CL')} km). Verifica el valor.</div>`;
-    } else if (odoCheck.status === 'discrepancia'){
-      alertHtml += `<div class="alert warn">△ Diferencia de ${odoCheck.diff.toFixed(0)} km respecto al último cierre (tolerancia: 50 km). El turno quedará marcado "con discrepancia" para revisión del supervisor.</div>`;
-    }
+    if (odoCheck.status === 'error') alertHtml += `<div class="alert">⚠ El odómetro no puede ser menor al último cierre.</div>`;
 
     const bloqueaAvance = state.cargandoUltimoOdometro || odoCheck.status === 'error' || state.odo_inicio === '';
 
@@ -757,22 +632,21 @@
       <div class="section">
         <span class="link-back" data-back="select-vehicle">‹ Cambiar camión</span>
         <div class="eyebrow" style="margin-bottom:4px;">Paso 2 de 3 · Lectura de inicio</div>
-        <h2 style="font-size:17px; margin-bottom:14px;">${v.patente} — ${[v.marca, v.modelo].filter(Boolean).join(' ')}</h2>
+        <h2 style="font-size:17px; margin-bottom:14px;">${v.patente}</h2>
         ${saveErrorHtml()}
+        
+        <button class="btn btn-secondary" id="btn-quincenal" style="margin-bottom:20px;">📷 Registro de Carrocería</button>
 
         <div class="gauge-cluster">
           <div class="gauge">
             <div class="gauge-label">Último odómetro registrado</div>
             <div class="gauge-value">${state.cargandoUltimoOdometro ? '…' : Number(ultimo || 0).toLocaleString('es-CL')}</div>
-            <div class="gauge-ref">km${ultimo === 0 ? ' · sin turnos previos' : ''}</div>
           </div>
         </div>
 
         <label>Odómetro de inicio (km)</label>
-        <input type="text" inputmode="decimal" id="odo_inicio" value="${state.odo_inicio}" placeholder="${ultimo || 0}">
-
+        <input type="text" inputmode="decimal" id="odo_inicio" value="${state.odo_inicio}">
         ${fotoField('odo_inicio_foto', 'Foto del odómetro', state.odo_inicio_foto)}
-
         ${alertHtml}
 
         <button class="btn btn-primary" id="btn-to-checklist" ${bloqueaAvance ? 'disabled' : ''}>Continuar a Checklist</button>
@@ -783,16 +657,15 @@
   function checklistScreen(momento){
     const respuestas = momento === 'pre' ? state.checklist_pre : state.checklist_post;
     const fotos = momento === 'pre' ? state.checklist_pre_fotos : state.checklist_post_fotos;
+    const comentarios = momento === 'pre' ? state.checklist_pre_comentarios : state.checklist_post_comentarios;
     const categorias = [...new Set(state.checklistItems.map(i => i.categoria))];
-    const tieneFalla = checklistTieneFallaCritica(respuestas);
     const todasRespondidas = state.checklistItems.length > 0 && state.checklistItems.every(it => respuestas[it.id]);
 
     return `
       <div class="section">
         <span class="link-back" data-back="${momento === 'pre' ? 'start-readings' : 'close-readings'}">‹ Volver</span>
-        <div class="eyebrow" style="margin-bottom:4px;">Paso 3 de 3 · Checklist ${momento === 'pre' ? 'PRE-viaje' : 'POST-viaje'}</div>
-        <h2 style="font-size:17px; margin-bottom:6px;">Inspección técnica</h2>
-        <p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Un ítem crítico en falla bloquea ${momento === 'pre' ? 'el inicio del turno' : 'el cierre sin revisión'}.</p>
+        <div class="eyebrow" style="margin-bottom:4px;">Paso 3 de 3 · Checklist ${momento.toUpperCase()}</div>
+        <h2 style="font-size:17px; margin-bottom:14px;">Inspección técnica</h2>
         ${saveErrorHtml()}
 
         ${categorias.map(cat => `
@@ -800,32 +673,52 @@
           ${state.checklistItems.filter(i => i.categoria === cat).map(it => `
             <div class="checklist-item">
               <div class="checklist-item-top">
-                <div class="item-name">${it.nombre}${it.es_critico ? '<span class="item-crit">CRÍTICO</span>' : ''}</div>
+                <div class="item-name">${it.nombre}</div>
                 <div class="seg">
                   <button class="seg-btn ${respuestas[it.id]==='ok' ? 'active-ok':''}" data-item="${it.id}" data-momento="${momento}" data-val="ok">OK</button>
-                  <button class="seg-btn ${respuestas[it.id]==='observacion' ? 'active-obs':''}" data-item="${it.id}" data-momento="${momento}" data-val="observacion">Obs</button>
-                  <button class="seg-btn ${respuestas[it.id]==='falla' ? 'active-falla':''}" data-item="${it.id}" data-momento="${momento}" data-val="falla">Falla</button>
-                  ${fotoMiniButton(`chk_foto_${momento}_${it.id}`, fotos[it.id])}
+                  <button class="seg-btn ${respuestas[it.id]==='nc' ? 'active-nc':''}" data-item="${it.id}" data-momento="${momento}" data-val="nc">NC</button>
                 </div>
               </div>
+              ${respuestas[it.id] === 'nc' ? `
+                <div class="nc-box">
+                  <label style="color:var(--warning);">Detalla el problema (Obligatorio)</label>
+                  <textarea data-comentario="${it.id}" data-momento="${momento}" placeholder="Ej: Foco quemado...">${comentarios[it.id]||''}</textarea>
+                  ${fotoField(`chk_foto_${momento}_${it.id}`, 'Foto del detalle', fotos[it.id])}
+                </div>
+              ` : ''}
             </div>
           `).join('')}
         `).join('')}
 
-        ${tieneFalla ? `
-          <div class="alert" style="margin-top:16px;">
-            ⛔ Hay un ítem crítico marcado en falla. ${state.overrideSupervisor ? 'Override de supervisor activo.' : 'No se puede continuar sin aprobación del supervisor.'}
-          </div>
-          <label style="display:flex; align-items:center; gap:8px; margin-bottom:14px; cursor:pointer;">
-            <input type="checkbox" id="override" ${state.overrideSupervisor ? 'checked':''} style="width:auto; margin:0;">
-            <span style="font-size:13px; color:var(--text-dim);">Supervisor autoriza continuar de todas formas</span>
-          </label>
-        ` : ''}
-
-        <button class="btn ${tieneFalla && !state.overrideSupervisor ? 'btn-ghost' : 'btn-primary'}" id="btn-checklist-confirm"
-          ${(!todasRespondidas || state.saving) ? 'disabled' : ''}>
+        <button class="btn btn-primary" id="btn-checklist-confirm" style="margin-top:16px;" ${(!todasRespondidas || state.saving) ? 'disabled' : ''}>
           ${state.saving ? 'Guardando…' : (momento === 'pre' ? 'Iniciar Turno' : 'Confirmar y Cerrar Turno')}
         </button>
+      </div>
+    `;
+  }
+
+  function quincenalScreen(){
+    const categorias = ['puertas', 'parachoques', 'focos', 'espejos', 'costados'];
+    return `
+      <div class="section">
+        <span class="link-back" data-back="start-readings">‹ Volver</span>
+        <div class="eyebrow" style="margin-bottom:4px;">Registro Fotográfico</div>
+        <h2 style="font-size:17px; margin-bottom:6px;">Estado Carrocería</h2>
+        <p style="font-size:13px; color:var(--text-dim); margin-bottom:16px;">Sube fotos de todos los ángulos del vehículo para mantener el respaldo visual.</p>
+        ${saveErrorHtml()}
+
+        ${categorias.map(cat => `
+          <div class="repo-box">
+            <div class="repo-title">${cat.toUpperCase()}</div>
+            <input type="file" id="q_${cat}" accept="image/*" multiple style="display:none;">
+            <label for="q_${cat}" class="foto-btn">➕ Seleccionar fotos</label>
+            <div class="photo-grid">
+              ${Array.from(state.quincenal[cat] || []).map(f => `<img src="${previewUrl(f)}">`).join('')}
+            </div>
+          </div>
+        `).join('')}
+
+        <button class="btn btn-primary" id="btn-guardar-quincenal" ${state.saving?'disabled':''}>${state.saving?'Subiendo fotos...':'Guardar Registro'}</button>
       </div>
     `;
   }
@@ -833,7 +726,6 @@
   function activeScreen(){
     const v = state.vehiculo;
     const totalGastos = state.gastos.reduce((s,x) => s + (parseFloat(x.monto)||0), 0);
-
     return `
       <div class="section">
         <div class="badge badge-ok" style="margin-bottom:14px;">● Turno en curso</div>
@@ -841,65 +733,31 @@
         <div class="card">
           <div class="veh-patente" style="font-size:18px; margin-bottom:2px;">${v.patente}</div>
           <div class="veh-sub" style="margin-bottom:14px;">${[v.marca, v.modelo].filter(Boolean).join(' ')}</div>
-          <div class="gauge-cluster">
-            <div class="gauge">
-              <div class="gauge-label">Odómetro inicio</div>
-              <div class="gauge-value">${Number(parseFloat(state.odo_inicio)).toLocaleString('es-CL')}</div>
-              <div class="gauge-ref">km</div>
-            </div>
-          </div>
+          <div class="gauge-cluster"><div class="gauge"><div class="gauge-label">Odómetro inicio</div><div class="gauge-value">${Number(parseFloat(state.odo_inicio)).toLocaleString('es-CL')}</div></div></div>
         </div>
-
         <div class="stat-row">
-          <div class="stat">
-            <div class="stat-label">Viajes a bodega</div>
-            <div class="stat-value">${state.viajes.length}</div>
-          </div>
-          <div class="stat">
-            <div class="stat-label">Gastos registrados</div>
-            <div class="stat-value">$${totalGastos.toLocaleString('es-CL')}</div>
-          </div>
+          <div class="stat"><div class="stat-label">Viajes</div><div class="stat-value">${state.viajes.length}</div></div>
+          <div class="stat"><div class="stat-label">Gastos</div><div class="stat-value">$${totalGastos.toLocaleString('es-CL')}</div></div>
         </div>
-
         <div class="btn-row">
-          <button class="btn btn-secondary" id="btn-nuevo-viaje">+ Viaje a bodega</button>
+          <button class="btn btn-secondary" id="btn-nuevo-viaje">+ Viaje</button>
           <button class="btn btn-secondary" id="btn-nuevo-gasto">+ Gasto</button>
         </div>
-
         ${renderLogList()}
-
         <button class="btn btn-danger" id="btn-cerrar-turno" style="margin-top:8px;">Cerrar Turno</button>
       </div>
     `;
   }
 
   function renderLogList(){
-    const items = [
-      ...state.viajes.map(v => ({ tipo:'viaje', data:v })),
-      ...state.gastos.map(g => ({ tipo:'gasto', data:g })),
-    ];
-    if (items.length === 0){
-      return `<div class="empty-state">Aún no registras viajes ni gastos en este turno.</div>`;
-    }
+    const items = [...state.viajes.map(v => ({ tipo:'viaje', data:v })), ...state.gastos.map(g => ({ tipo:'gasto', data:g }))];
+    if (items.length === 0) return `<div class="empty-state">Aún no registras viajes ni gastos.</div>`;
     return items.map(it => {
       if (it.tipo === 'viaje'){
         const km = (parseFloat(it.data.odometro_regreso) - parseFloat(it.data.odometro_salida)) || 0;
-        return `<div class="log-item">
-          <div class="log-top">
-            <span class="log-title">Viaje a bodega</span>
-            <span class="log-meta">${km.toFixed(0)} km</span>
-          </div>
-          <div class="log-meta">${it.data.scooters_cargados || 0} scooters · ${it.data.baterias_cargadas || 0} baterías</div>
-        </div>`;
+        return `<div class="log-item"><div class="log-top"><span class="log-title">Viaje a bodega</span><span class="log-meta">${km.toFixed(0)} km</span></div><div class="log-meta">${it.data.scooters_cargados || 0} scooters · ${it.data.baterias_cargadas || 0} baterías</div></div>`;
       }
-      const tipoLabel = { combustible:'Combustible', peaje:'Peaje', mantencion:'Mantención', neumaticos:'Neumáticos', otro:'Otro' }[it.data.tipo] || it.data.tipo;
-      return `<div class="log-item">
-        <div class="log-top">
-          <span class="log-title">${tipoLabel}</span>
-          <span class="log-meta">$${(parseFloat(it.data.monto)||0).toLocaleString('es-CL')}</span>
-        </div>
-        ${it.data.litros ? `<div class="log-meta">${it.data.litros} L · odómetro ${it.data.odometro_al_cargar}</div>` : ''}
-      </div>`;
+      return `<div class="log-item"><div class="log-top"><span class="log-title">${it.data.tipo}</span><span class="log-meta">$${(parseFloat(it.data.monto)||0).toLocaleString('es-CL')}</span></div></div>`;
     }).join('');
   }
 
@@ -909,12 +767,8 @@
     const odoSalida = parseFloat(f.odo_salida);
     const odoRegreso = parseFloat(f.odo_regreso);
     let alertHtml = '';
-    if (!isNaN(odoSalida) && odoSalida < odoIni){
-      alertHtml += `<div class="alert">⚠ El odómetro de salida no puede ser menor al inicio del turno (${odoIni.toLocaleString('es-CL')} km).</div>`;
-    }
-    if (!isNaN(odoRegreso) && !isNaN(odoSalida) && odoRegreso < odoSalida){
-      alertHtml += `<div class="alert">⚠ El odómetro de regreso no puede ser menor al de salida.</div>`;
-    }
+    if (!isNaN(odoSalida) && odoSalida < odoIni) alertHtml += `<div class="alert">⚠ El odómetro de salida no puede ser menor al inicio.</div>`;
+    if (!isNaN(odoRegreso) && !isNaN(odoSalida) && odoRegreso < odoSalida) alertHtml += `<div class="alert">⚠ El odómetro de regreso no puede ser menor al de salida.</div>`;
     const bloquea = state.saving || f.odo_salida === '' || f.odo_regreso === '' || odoSalida < odoIni || odoRegreso < odoSalida;
 
     return `
@@ -922,21 +776,11 @@
         <span class="link-back" data-back="active">‹ Volver</span>
         <div class="eyebrow" style="margin-bottom:14px;">Registrar viaje a bodega</div>
         ${saveErrorHtml()}
-
-        <label>Scooters cargados</label>
-        <input type="text" inputmode="numeric" id="v_scooters" value="${f.scooters}" placeholder="0">
-
-        <label>Baterías cargadas</label>
-        <input type="text" inputmode="numeric" id="v_baterias" value="${f.baterias}" placeholder="0">
-
-        <label>Odómetro de salida (km)</label>
-        <input type="text" inputmode="decimal" id="v_odo_salida" value="${f.odo_salida}" placeholder="${odoIni}">
-
-        <label>Odómetro de regreso (km)</label>
-        <input type="text" inputmode="decimal" id="v_odo_regreso" value="${f.odo_regreso}">
-
+        <label>Scooters cargados</label><input type="text" inputmode="numeric" id="v_scooters" value="${f.scooters}">
+        <label>Baterías cargadas</label><input type="text" inputmode="numeric" id="v_baterias" value="${f.baterias}">
+        <label>Odómetro de salida (km)</label><input type="text" inputmode="decimal" id="v_odo_salida" value="${f.odo_salida}">
+        <label>Odómetro de regreso (km)</label><input type="text" inputmode="decimal" id="v_odo_regreso" value="${f.odo_regreso}">
         ${alertHtml}
-
         <button class="btn btn-primary" id="btn-guardar-viaje" ${bloquea ? 'disabled' : ''}>${state.saving ? 'Guardando…' : 'Guardar viaje'}</button>
       </div>
     `;
@@ -945,46 +789,20 @@
   function gastoFormScreen(){
     const f = state.gastoForm;
     const v = state.vehiculo;
-    const TIPOS_GASTO = [
-      { id:'combustible', label:'Combustible' },
-      { id:'peaje', label:'Peaje' },
-      { id:'mantencion', label:'Mantención' },
-      { id:'neumaticos', label:'Neumáticos' },
-      { id:'otro', label:'Otro' },
-    ];
-    let alertHtml = '';
-    if (f.tipo === 'combustible' && f.litros !== '' && parseFloat(f.litros) > v.capacidad_estanque_l){
-      alertHtml = `<div class="alert">⚠ ${f.litros} L excede la capacidad del estanque (${v.capacidad_estanque_l} L). Revisa el dato.</div>`;
-    }
     const bloquea = state.saving || f.monto === '' || (f.tipo === 'combustible' && (f.litros === '' || parseFloat(f.litros) > v.capacidad_estanque_l));
-
     return `
       <div class="section">
         <span class="link-back" data-back="active">‹ Volver</span>
         <div class="eyebrow" style="margin-bottom:14px;">Registrar gasto</div>
         ${saveErrorHtml()}
-
         <label>Tipo de gasto</label>
         <select id="g_tipo">
-          ${TIPOS_GASTO.map(t => `<option value="${t.id}" ${f.tipo===t.id?'selected':''}>${t.label}</option>`).join('')}
+          ${[{id:'combustible',label:'Combustible'},{id:'peaje',label:'Peaje'},{id:'mantencion',label:'Mantención'},{id:'otro',label:'Otro'}].map(t => `<option value="${t.id}" ${f.tipo===t.id?'selected':''}>${t.label}</option>`).join('')}
         </select>
-
-        <label>Monto ($)</label>
-        <input type="text" inputmode="numeric" id="g_monto" value="${f.monto}" placeholder="0">
-
-        ${f.tipo === 'combustible' ? `
-          <label>Litros cargados</label>
-          <input type="text" inputmode="decimal" id="g_litros" value="${f.litros}" placeholder="0">
-
-          <label>Odómetro al cargar (km)</label>
-          <input type="text" inputmode="decimal" id="g_odo" value="${f.odo}" placeholder="${state.odo_inicio}">
-        ` : ''}
-
+        <label>Monto ($)</label><input type="text" inputmode="numeric" id="g_monto" value="${f.monto}">
+        ${f.tipo === 'combustible' ? `<label>Litros cargados</label><input type="text" inputmode="decimal" id="g_litros" value="${f.litros}"><label>Odómetro al cargar (km)</label><input type="text" inputmode="decimal" id="g_odo" value="${f.odo}">` : ''}
         ${fotoField('g_foto', 'Foto de la boleta', f.foto)}
-
-        ${alertHtml}
-
-        <button class="btn btn-primary" id="btn-guardar-gasto" ${bloquea ? 'disabled' : ''}>${state.saving ? 'Guardando…' : 'Guardar gasto'}</button>
+        <button class="btn btn-primary" id="btn-guardar-gasto" ${bloquea ? 'disabled' : ''}>Guardar gasto</button>
       </div>
     `;
   }
@@ -992,12 +810,8 @@
   function closeReadingsScreen(){
     const odoIni = parseFloat(state.odo_inicio);
     const odoFinNum = parseFloat(state.odo_fin);
-
     let alertHtml = '';
-    if (!isNaN(odoFinNum) && odoFinNum <= odoIni){
-      alertHtml += `<div class="alert">⚠ El odómetro final debe ser mayor al de inicio (${odoIni.toLocaleString('es-CL')} km).</div>`;
-    }
-
+    if (!isNaN(odoFinNum) && odoFinNum <= odoIni) alertHtml += `<div class="alert">⚠ El odómetro final debe ser mayor al de inicio.</div>`;
     const bloquea = state.odo_fin === '' || odoFinNum <= odoIni;
 
     return `
@@ -1005,14 +819,9 @@
         <span class="link-back" data-back="active">‹ Volver</span>
         <div class="eyebrow" style="margin-bottom:4px;">Cierre de turno</div>
         <h2 style="font-size:17px; margin-bottom:14px;">${state.vehiculo.patente} — Lectura final</h2>
-
-        <label>Odómetro final (km)</label>
-        <input type="text" inputmode="decimal" id="odo_fin" value="${state.odo_fin}" placeholder="${odoIni}">
-
+        <label>Odómetro final (km)</label><input type="text" inputmode="decimal" id="odo_fin" value="${state.odo_fin}" placeholder="${odoIni}">
         ${fotoField('odo_fin_foto', 'Foto del odómetro', state.odo_fin_foto)}
-
         ${alertHtml}
-
         <button class="btn btn-primary" id="btn-to-checklist-post" ${bloquea ? 'disabled' : ''}>Continuar a Checklist</button>
       </div>
     `;
@@ -1021,17 +830,6 @@
   function summaryScreen(){
     const v = state.vehiculo;
     const km = parseFloat(state.odo_fin) - parseFloat(state.odo_inicio);
-    const litrosCombustible = state.gastos.filter(g => g.tipo === 'combustible').reduce((s,g) => s + (parseFloat(g.litros)||0), 0);
-    const rendimientoReal = litrosCombustible > 0 ? km / litrosCombustible : null;
-    const totalGastos = state.gastos.reduce((s,g) => s + (parseFloat(g.monto)||0), 0);
-    const totalScooters = state.viajes.reduce((s,vv) => s + (parseInt(vv.scooters_cargados)||0), 0);
-
-    let badge = '<span class="badge badge-ok">🟢 Operación normal</span>';
-    if (rendimientoReal !== null && v.rendimiento_esperado_kml){
-      const desviacion = Math.abs(rendimientoReal - v.rendimiento_esperado_kml) / v.rendimiento_esperado_kml;
-      if (desviacion > 0.15) badge = '<span class="badge badge-danger">🔴 Consumo fuera de rango</span>';
-    }
-
     return `
       <div class="section">
         <div class="eyebrow" style="margin-bottom:10px;">Turno cerrado</div>
@@ -1039,16 +837,8 @@
           <div class="veh-patente" style="margin-bottom:14px;">${v.patente}</div>
           <div class="summary-row"><span>Km recorridos</span><span>${km.toLocaleString('es-CL')} km</span></div>
           <div class="summary-row"><span>Viajes a bodega</span><span>${state.viajes.length}</span></div>
-          <div class="summary-row"><span>Scooters movidos</span><span>${totalScooters}</span></div>
-          <div class="summary-row"><span>Gasto total del turno</span><span>$${totalGastos.toLocaleString('es-CL')}</span></div>
-          ${rendimientoReal !== null ? `<div class="summary-row"><span>Rendimiento real</span><span>${rendimientoReal.toFixed(2)} km/L</span></div>` : ''}
-          <div style="margin-top:14px; display:flex; gap:6px; flex-wrap:wrap;">${badge}</div>
+          <div style="margin-top:14px; display:flex; gap:6px; flex-wrap:wrap;"><span class="badge badge-ok">🟢 Operación normal</span></div>
         </div>
-        <p style="font-size:13px; color:var(--text-dim); margin-bottom:16px;">
-          Este turno quedó registrado en la base de datos y disponible en el dashboard del
-          supervisor. La próxima apertura de turno de este camión validará su continuidad
-          contra estas lecturas.
-        </p>
         <button class="btn btn-ghost" id="btn-nuevo-turno">Registrar otro turno</button>
       </div>
     `;
@@ -1061,10 +851,7 @@
     document.querySelectorAll('[data-vehiculo]').forEach(el => {
       el.addEventListener('click', () => {
         const v = state.vehiculos.find(x => x.id === el.dataset.vehiculo);
-        setState({
-          vehiculo: v, screen:'start-readings', odo_inicio:'', odo_inicio_foto:null,
-          ultimoOdometro:null, checklist_pre:{}, checklist_pre_fotos:{}, overrideSupervisor:false,
-        });
+        setState({ vehiculo: v, screen:'start-readings', odo_inicio:'', odo_inicio_foto:null, ultimoOdometro:null, checklist_pre:{}, checklist_pre_fotos:{}, checklist_pre_comentarios:{} });
         cargarUltimoOdometro(v.id);
       });
     });
@@ -1079,7 +866,6 @@
     bindNumericInput('v_baterias', v => setStateField('viajeForm','baterias', v), false);
     bindNumericInput('v_odo_salida', v => setStateField('viajeForm','odo_salida', v), true);
     bindNumericInput('v_odo_regreso', v => setStateField('viajeForm','odo_regreso', v), true);
-
     bindNumericInput('g_monto', v => setStateField('gastoForm','monto', v), false);
     bindNumericInput('g_litros', v => setStateField('gastoForm','litros', v), true);
     bindNumericInput('g_odo', v => setStateField('gastoForm','odo', v), true);
@@ -1089,6 +875,38 @@
     bindFileInput('odo_inicio_foto', file => setState({ odo_inicio_foto: file }));
     bindFileInput('odo_fin_foto', file => setState({ odo_fin_foto: file }));
     bindFileInput('g_foto', file => setStateField('gastoForm','foto', file));
+
+    const btnQuin = document.getElementById('btn-quincenal');
+    if (btnQuin) btnQuin.addEventListener('click', () => setState({ screen:'quincenal' }));
+
+    document.querySelectorAll('[id^="q_"]').forEach(el => {
+      const cat = el.id.replace('q_','');
+      el.addEventListener('change', e => {
+        setState({ quincenal: Object.assign({}, state.quincenal, { [cat]: e.target.files }) });
+      });
+    });
+
+    const btnGQ = document.getElementById('btn-guardar-quincenal');
+    if (btnGQ) btnGQ.addEventListener('click', guardarQuincenal);
+
+    const btnToChecklist = document.getElementById('btn-to-checklist');
+    if (btnToChecklist) btnToChecklist.addEventListener('click', () => setState({ screen:'checklist-pre', saveError:null }));
+
+    document.querySelectorAll('[data-item]').forEach(el => {
+      el.addEventListener('click', () => {
+        const key = el.dataset.momento === 'pre' ? 'checklist_pre' : 'checklist_post';
+        const updated = Object.assign({}, state[key], { [el.dataset.item]: el.dataset.val });
+        setState({ [key]: updated });
+      });
+    });
+
+    document.querySelectorAll('textarea[data-comentario]').forEach(el => {
+      el.addEventListener('input', e => {
+        const key = e.target.dataset.momento === 'pre' ? 'checklist_pre_comentarios' : 'checklist_post_comentarios';
+        const updated = Object.assign({}, state[key], { [e.target.dataset.comentario]: e.target.value });
+        setState({ [key]: updated });
+      });
+    });
 
     document.querySelectorAll('[id^="chk_foto_pre_"]').forEach(el => {
       const itemId = el.id.replace('chk_foto_pre_','');
@@ -1105,20 +923,6 @@
       });
     });
 
-    const btnToChecklist = document.getElementById('btn-to-checklist');
-    if (btnToChecklist) btnToChecklist.addEventListener('click', () => setState({ screen:'checklist-pre', saveError:null }));
-
-    document.querySelectorAll('[data-item]').forEach(el => {
-      el.addEventListener('click', () => {
-        const key = el.dataset.momento === 'pre' ? 'checklist_pre' : 'checklist_post';
-        const updated = Object.assign({}, state[key], { [el.dataset.item]: el.dataset.val });
-        setState({ [key]: updated });
-      });
-    });
-
-    const overrideEl = document.getElementById('override');
-    if (overrideEl) overrideEl.addEventListener('change', e => setState({ overrideSupervisor: e.target.checked }));
-
     const btnChecklistConfirm = document.getElementById('btn-checklist-confirm');
     if (btnChecklistConfirm) btnChecklistConfirm.addEventListener('click', () => {
       if (state.screen === 'checklist-pre') confirmarChecklistPre();
@@ -1126,60 +930,41 @@
     });
 
     const btnNuevoViaje = document.getElementById('btn-nuevo-viaje');
-    if (btnNuevoViaje) btnNuevoViaje.addEventListener('click', () => setState({
-      screen:'viaje-form', saveError:null, viajeForm:{ scooters:'', baterias:'', odo_salida:'', odo_regreso:'' }
-    }));
-
+    if (btnNuevoViaje) btnNuevoViaje.addEventListener('click', () => setState({ screen:'viaje-form', saveError:null, viajeForm:{ scooters:'', baterias:'', odo_salida:'', odo_regreso:'' } }));
     const btnGuardarViaje = document.getElementById('btn-guardar-viaje');
     if (btnGuardarViaje) btnGuardarViaje.addEventListener('click', guardarViaje);
 
     const btnNuevoGasto = document.getElementById('btn-nuevo-gasto');
-    if (btnNuevoGasto) btnNuevoGasto.addEventListener('click', () => setState({
-      screen:'gasto-form', saveError:null, gastoForm:{ tipo:'combustible', monto:'', litros:'', odo:'', foto:null }
-    }));
-
+    if (btnNuevoGasto) btnNuevoGasto.addEventListener('click', () => setState({ screen:'gasto-form', saveError:null, gastoForm:{ tipo:'combustible', monto:'', litros:'', odo:'', foto:null } }));
     const btnGuardarGasto = document.getElementById('btn-guardar-gasto');
     if (btnGuardarGasto) btnGuardarGasto.addEventListener('click', guardarGasto);
 
     const btnCerrar = document.getElementById('btn-cerrar-turno');
-    if (btnCerrar) btnCerrar.addEventListener('click', () => setState({
-      screen:'close-readings', odo_fin:'', odo_fin_foto:null, checklist_post:{}, checklist_post_fotos:{}, overrideSupervisor:false,
-    }));
+    if (btnCerrar) btnCerrar.addEventListener('click', () => setState({ screen:'close-readings', odo_fin:'', odo_fin_foto:null, checklist_post:{}, checklist_post_fotos:{}, checklist_post_comentarios:{} }));
 
     const btnToChecklistPost = document.getElementById('btn-to-checklist-post');
     if (btnToChecklistPost) btnToChecklistPost.addEventListener('click', () => setState({ screen:'checklist-post', saveError:null }));
 
     const btnNuevo = document.getElementById('btn-nuevo-turno');
-    if (btnNuevo) btnNuevo.addEventListener('click', () => setState({
-      screen:'select-vehicle', vehiculo:null, turnoId:null,
-      odo_inicio:'', odo_inicio_foto:null, odo_fin:'', odo_fin_foto:null,
-      checklist_pre:{}, checklist_pre_fotos:{}, checklist_post:{}, checklist_post_fotos:{},
-      overrideSupervisor:false, viajes:[], gastos:[], saveError:null,
-    }));
+    if (btnNuevo) btnNuevo.addEventListener('click', () => setState({ screen:'select-vehicle', vehiculo:null, turnoId:null }));
   }
 
-render();
+  render();
   
   // Revisamos la sesión PRIMERO
   supabase.auth.getSession().then(({data}) => {
     if (!data.session) {
-      // Si no hay sesión, inicia y recarga
-      supabase.auth.signInWithPassword({
-        email: 'chacho@rembercarg.com',
-        password: '123456'
-      }).then(({error}) => {
-        if(error){
-          console.error("Error al iniciar:", error.message);
-          setState({ loading: false, loadError: "Error de credenciales: " + error.message });
-        } else {
-          window.location.reload(); 
-        }
-      });
+      supabase.auth.signInWithPassword({ email: 'chacho@rembercarg.com', password: '123456' })
+        .then(({error}) => {
+          if(!error) window.location.reload(); 
+          else setState({ loading: false, loadError: "Error de credenciales: " + error.message });
+        });
     } else {
-      // Si YA estamos adentro, entonces arrancamos los datos
       init();
     }
   });
 
+})();
+</script>
 })();
 </script>
