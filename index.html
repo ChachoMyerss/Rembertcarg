@@ -109,7 +109,7 @@
     display:block; font-size:12px; color:var(--text-dim);
     margin-bottom:6px; letter-spacing:0.3px;
   }
-  input[type=text], input[type=number], select, textarea{
+  input[type=text], input[type=number], input[type=email], input[type=password], select, textarea{
     width:100%;
     background:#0D0F13;
     border:1px solid var(--border);
@@ -125,6 +125,12 @@
   select{font-family:'Inter',sans-serif; font-size:15px;}
   textarea{font-family:'Inter',sans-serif; font-size:14px; resize:vertical; min-height:80px;}
   input:focus, select:focus, textarea:focus{outline:2px solid var(--accent); border-color:transparent;}
+
+  .login-screen{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;}
+  .login-box{width:100%; max-width:340px;}
+  .login-box h1{font-size:19px; margin:6px 0 20px;}
+  .login-error{background:var(--danger-dim); border:1px solid var(--danger); color:var(--danger); padding:10px 12px; border-radius:8px; font-size:13px; margin-bottom:14px;}
+  .logout-link{font-size:11px; color:var(--text-dim); text-decoration:underline; cursor:pointer; margin-top:2px;}
 
   .badge{
     display:inline-flex; align-items:center; gap:6px;
@@ -257,6 +263,12 @@
   // ESTADO
   // =====================================================================
   let state = {
+    booting: true,          // resolviendo la sesión inicial (antes de saber si hay que mostrar login)
+    session: null,
+    loginForm: { email:'', password:'' },
+    loginError: null,
+    loggingIn: false,
+
     loading: true,
     loadError: null,
     screen: 'select-vehicle',
@@ -304,13 +316,16 @@
       }
     } catch(e){ /* ignorado */ }
 
-    app.innerHTML = `
+    app.innerHTML = state.booting ? loadingScreen() : (!supabase) ? errorScreen() : (!state.session) ? loginScreen() : `
       <div class="topbar">
         <div>
           <div class="eyebrow">Flota · Terreno</div>
           <h1>Bitácora de Turno</h1>
         </div>
-        ${state.chofer ? `<div class="chofer-tag">${state.chofer.nombre}</div>` : ''}
+        <div style="text-align:right;">
+          ${state.chofer ? `<div class="chofer-tag">${state.chofer.nombre}</div>` : ''}
+          <span class="logout-link" id="btn-logout">Cerrar sesión</span>
+        </div>
       </div>
       ${screenBody()}
     `;
@@ -413,6 +428,27 @@
   // =====================================================================
   // CARGA DE DATOS REALES
   // =====================================================================
+  async function login(){
+    setState({ loggingIn:true, loginError:null });
+    const { email, password } = state.loginForm;
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error){
+      setState({ loggingIn:false, loginError: 'No se pudo iniciar sesión: ' + error.message });
+      return;
+    }
+    setState({ loggingIn:false, session: data.session });
+    init();
+  }
+
+  async function logout(){
+    await supabase.auth.signOut();
+    setState({
+      session:null, chofer:null, loading:true, loadError:null,
+      screen:'select-vehicle', vehiculo:null, turnoId:null,
+      loginForm:{ email:'', password:'' }, loginError:null,
+    });
+  }
+
   async function init(){
     if (!supabase){
       setState({ loading:false, loadError:'Falta configurar SUPABASE_URL.' });
@@ -424,7 +460,8 @@
 
       const { data: perfil, error: perfilErr } = await supabase.from('usuarios').select('id, nombre, rol').eq('auth_user_id', authData.user.id).maybeSingle();
       if (perfilErr) throw perfilErr;
-      
+      if (!perfil) throw new Error('Tu cuenta no está vinculada a un chofer en la tabla "usuarios". Avisa al administrador.');
+
       const { data: vehiculos, error: vehErr } = await supabase.from('vehiculos').select('*').eq('activo', true).order('patente');
       if (vehErr) throw vehErr;
 
@@ -478,9 +515,10 @@
       if (!val) continue;
       const file = fotos[item.id];
       const fotoUrl = file ? await uploadFoto(file, `checklist/${checklist.id}/${item.id}`) : null;
-      await supabase.from('inspeccion_respuestas').insert({ 
-        checklist_id: checklist.id, item_id: item.id, estado: val, comentario: comentarios[item.id] || null, foto_url: fotoUrl 
+      const { error: rErr } = await supabase.from('inspeccion_respuestas').insert({
+        checklist_id: checklist.id, item_id: item.id, estado: val, comentario: comentarios[item.id] || null, foto_url: fotoUrl
       });
+      if (rErr) throw new Error(`No se pudo guardar la respuesta del ítem "${item.nombre}": ${rErr.message}`);
     }
     return checklist;
   }
@@ -496,7 +534,8 @@
       }).select().single();
       if (tErr) throw tErr;
 
-      await supabase.from('checklists_realizados').update({ turno_id: turno.id }).eq('id', checklist.id);
+      const { error: linkErr } = await supabase.from('checklists_realizados').update({ turno_id: turno.id }).eq('id', checklist.id);
+      if (linkErr) throw linkErr;
       setState({ saving:false, saveError:null, turnoId: turno.id, screen:'active' });
     } catch(e){
       setState({ saving:false, saveError: e.message || String(e) });
@@ -509,9 +548,10 @@
       await guardarChecklist('post', state.turnoId);
       const fotoOdoFin = await uploadFoto(state.odo_fin_foto, `turnos/odo-fin-${state.turnoId}`);
 
-      await supabase.from('turnos').update({
+      const { error: closeErr } = await supabase.from('turnos').update({
         odometro_fin: parseFloat(state.odo_fin), foto_odometro_fin_url: fotoOdoFin, fecha_fin: new Date().toISOString(), estado: 'cerrado'
       }).eq('id', state.turnoId);
+      if (closeErr) throw closeErr;
 
       setState({ saving:false, saveError:null, screen:'summary' });
     } catch(e){
@@ -601,6 +641,25 @@
     }
   }
 
+  function loginScreen(){
+    return `
+      <div class="login-screen">
+        <div class="login-box">
+          <div class="card">
+            <div class="eyebrow">Flota · Terreno</div>
+            <h1>Iniciar sesión</h1>
+            ${state.loginError ? `<div class="login-error">⚠ ${state.loginError}</div>` : ''}
+            <label>Correo</label>
+            <input type="email" id="login_email" value="${state.loginForm.email}" placeholder="chofer@tuempresa.com">
+            <label>Contraseña</label>
+            <input type="password" id="login_password" value="${state.loginForm.password}">
+            <button class="btn btn-primary" style="width:100%;" id="btn-login" ${state.loggingIn ? 'disabled' : ''}>${state.loggingIn ? 'Ingresando…' : 'Ingresar'}</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   function loadingScreen(){
     return `<div class="center-screen"><div class="spinner"></div><div style="font-size:13px; color:var(--text-dim);">Cargando datos…</div></div>`;
   }
@@ -670,7 +729,9 @@
     const fotos = momento === 'pre' ? state.checklist_pre_fotos : state.checklist_post_fotos;
     const comentarios = momento === 'pre' ? state.checklist_pre_comentarios : state.checklist_post_comentarios;
     const categorias = [...new Set(state.checklistItems.map(i => i.categoria))];
-    const todasRespondidas = state.checklistItems.length > 0 && state.checklistItems.every(it => respuestas[it.id]);
+    const todasRespondidas = state.checklistItems.length > 0 && state.checklistItems.every(it =>
+      respuestas[it.id] === 'ok' || (respuestas[it.id] === 'nc' && (comentarios[it.id] || '').trim().length > 0)
+    );
 
     return `
       <div class="section">
@@ -693,7 +754,7 @@
               ${respuestas[it.id] === 'nc' ? `
                 <div class="nc-box">
                   <label style="color:var(--warning);">Detalla el problema (Obligatorio)</label>
-                  <textarea data-comentario="${it.id}" data-momento="${momento}" placeholder="Ej: Foco quemado...">${comentarios[it.id]||''}</textarea>
+                  <textarea id="chk_comentario_${momento}_${it.id}" data-comentario="${it.id}" data-momento="${momento}" placeholder="Ej: Foco quemado...">${comentarios[it.id]||''}</textarea>
                   ${fotoField(`chk_foto_${momento}_${it.id}`, 'Foto del detalle', fotos[it.id])}
                 </div>
               ` : ''}
@@ -958,24 +1019,37 @@
 
     const btnNuevo = document.getElementById('btn-nuevo-turno');
     if (btnNuevo) btnNuevo.addEventListener('click', () => setState({ screen:'select-vehicle', vehiculo:null, turnoId:null }));
+
+    const btnLoginEl = document.getElementById('btn-login');
+    if (btnLoginEl) btnLoginEl.addEventListener('click', login);
+    const loginEmailEl = document.getElementById('login_email');
+    if (loginEmailEl) loginEmailEl.addEventListener('input', e => setStateField('loginForm','email', e.target.value));
+    const loginPassEl = document.getElementById('login_password');
+    if (loginPassEl){
+      loginPassEl.addEventListener('input', e => setStateField('loginForm','password', e.target.value));
+      loginPassEl.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+    }
+    const btnLogoutEl = document.getElementById('btn-logout');
+    if (btnLogoutEl) btnLogoutEl.addEventListener('click', logout);
   }
 
   render();
-  
-  // Revisamos la sesión PRIMERO
-  supabase.auth.getSession().then(({data}) => {
-    if (!data.session) {
-      supabase.auth.signInWithPassword({ email: 'chofer1@rembercarg.com', password: '123456' })
-        .then(({error}) => {
-          if(!error) window.location.reload(); 
-          else setState({ loading: false, loadError: "Error de credenciales: " + error.message });
-        });
-    } else {
-      init();
-    }
-  });
 
-})();
-</script>
+  // Revisamos si ya hay una sesión de Supabase Auth activa en este dispositivo.
+  // Si no la hay, se queda en la pantalla de login a la espera de correo/clave
+  // (cada chofer inicia sesión con su propia cuenta creada en Supabase Auth).
+  if (!supabase){
+    setState({ booting:false, loading:false, loadError:'Falta configurar SUPABASE_URL y SUPABASE_ANON_KEY.' });
+  } else {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session){
+        setState({ session: data.session, booting:false });
+        init();
+      } else {
+        setState({ booting:false, loading:false });
+      }
+    });
+  }
+
 })();
 </script>
