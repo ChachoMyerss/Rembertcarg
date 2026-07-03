@@ -956,7 +956,7 @@
   // =====================================================================
   // EVENTOS
   // =====================================================================
-  function bindEvents(){
+ function bindEvents(){
     document.querySelectorAll('[data-vehiculo]').forEach(el => {
       el.addEventListener('click', () => {
         const v = state.vehiculos.find(x => x.id === el.dataset.vehiculo);
@@ -1057,18 +1057,33 @@
     const btnNuevo = document.getElementById('btn-nuevo-turno');
     if (btnNuevo) btnNuevo.addEventListener('click', () => setState({ screen:'select-vehicle', vehiculo:null, turnoId:null }));
 
+    // ==========================================
+    // LOGIN CORREGIDO (Sin parpadeos ni errores)
+    // ==========================================
     const btnLoginEl = document.getElementById('btn-login');
-    if (btnLoginEl) btnLoginEl.addEventListener('click', login);
-
-
-
-    
-      loginPassEl.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+    if (btnLoginEl) {
+      btnLoginEl.addEventListener('click', () => {
+        // Leemos los datos directamente al hacer clic, sin actualizar la pantalla antes
+        state.loginForm.email = document.getElementById('login_email').value;
+        state.loginForm.password = document.getElementById('login_password').value;
+        login();
+      });
     }
+    
+    const loginPassEl = document.getElementById('login_password');
+    if (loginPassEl) {
+      loginPassEl.addEventListener('keydown', e => { 
+        if (e.key === 'Enter') {
+          state.loginForm.email = document.getElementById('login_email').value;
+          state.loginForm.password = document.getElementById('login_password').value;
+          login(); 
+        }
+      });
+    }
+
     const btnLogoutEl = document.getElementById('btn-logout');
     if (btnLogoutEl) btnLogoutEl.addEventListener('click', logout);
   }
-
   render();
 
   // Revisamos si ya hay una sesión de Supabase Auth activa en este dispositivo.
