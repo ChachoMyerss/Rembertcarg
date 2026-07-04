@@ -218,7 +218,13 @@
     color:var(--text); padding:9px 12px; border-radius:7px; cursor:pointer;
   }
   .foto-thumb{
-    width:52px; height:52px; object-fit:cover; border-radius:7px; border:1px solid var(--border);
+    width:52px; height:52px; object-fit:cover; border-radius:7px; border:1px solid var(--border); margin:0;
+  }
+  .remove-foto-btn {
+    position: absolute; top: -6px; right: -2px; background: var(--danger); color: #fff;
+    width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 14px; font-weight: bold; cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5); z-index: 2;
   }
   .repo-box{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:14px;}
   .repo-title{font-size:14px; font-weight:600; margin-bottom:10px;}
@@ -227,12 +233,10 @@
 
   /* --- Estados de carga / error --- */
   .center-screen{
-    min-height:60vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    text-align:center; padding:20px;
+    min-height:60vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px;
   }
   .spinner{
-    width:28px; height:28px; border-radius:50%;
-    border:3px solid var(--border); border-top-color:var(--accent);
+    width:28px; height:28px; border-radius:50%; border:3px solid var(--border); border-top-color:var(--accent);
     animation:spin .8s linear infinite; margin-bottom:14px;
   }
   @keyframes spin{to{transform:rotate(360deg);}}
@@ -244,7 +248,7 @@
 
 <div id="app"></div>
 
-  <script>
+<script>
 (function(){
 
   // =====================================================================
@@ -255,8 +259,7 @@
   const FOTOS_BUCKET = 'flota-fotos';
 
   const supabase = (window.supabase && SUPABASE_URL.indexOf('TU-PROYECTO') === -1)
-    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-    : null;
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
   // =====================================================================
   // ESTADO
@@ -287,7 +290,6 @@
 
     checklist_pre: {}, checklist_pre_fotos: {}, checklist_pre_comentarios: {},
     checklist_post: {}, checklist_post_fotos: {}, checklist_post_comentarios: {},
-    
     quincenal: { puertas:[], parachoques:[], focos:[], espejos:[], costados:[] },
 
     turnoId: null,
@@ -337,9 +339,7 @@
       const el = document.getElementById(activeId);
       if (el){
         el.focus();
-        if (selStart !== null && el.setSelectionRange){
-          try { el.setSelectionRange(selStart, selEnd); } catch(e){}
-        }
+        if (selStart !== null && el.setSelectionRange){ try { el.setSelectionRange(selStart, selEnd); } catch(e){} }
       }
     }
   }
@@ -351,15 +351,8 @@
     Promise.resolve().then(() => { renderScheduled = false; render(); });
   }
   
-  function setState(patch){
-    state = Object.assign({}, state, patch);
-    scheduleRender();
-  }
-  
-  function setStateField(obj, key, value){
-    state = Object.assign({}, state, { [obj]: Object.assign({}, state[obj], { [key]: value }) });
-    scheduleRender();
-  }
+  function setState(patch){ state = Object.assign({}, state, patch); scheduleRender(); }
+  function setStateField(obj, key, value){ state = Object.assign({}, state, { [obj]: Object.assign({}, state[obj], { [key]: value }) }); scheduleRender(); }
 
   function sanitizeNumeric(raw, allowDecimal){
     let v = raw;
@@ -387,7 +380,7 @@
   }
 
   // =====================================================================
-  // GESTOR DE MÚLTIPLES FOTOS
+  // GESTOR DE MÚLTIPLES FOTOS CON BORRADO (Basurero)
   // =====================================================================
   const objectUrlCache = new WeakMap();
   function previewUrl(file){
@@ -396,18 +389,32 @@
     return objectUrlCache.get(file);
   }
 
-  function fotoField(id, label, filesArr, existingUrlsStr){
+  // Ahora fotoField crea los elementos con un botón [X] para borrar
+  function fotoField(id, label, filesArr, existingUrlsStr, groupKey, itemKey){
     const arrFiles = Array.isArray(filesArr) ? filesArr : (filesArr ? [filesArr] : []);
-    const arrUrls = existingUrlsStr ? existingUrlsStr.split(',') : [];
-    const thumbs = arrFiles.map(f => previewUrl(f)).concat(arrUrls);
+    const arrUrls = existingUrlsStr ? existingUrlsStr.split(',').filter(Boolean) : [];
+    
+    let thumbsHtml = '';
+    arrFiles.forEach((f, idx) => {
+      thumbsHtml += `
+        <div style="position:relative; display:inline-block; margin:0 6px 6px 0;">
+          <img src="${previewUrl(f)}" class="foto-thumb">
+          <div class="remove-foto-btn" data-group="${groupKey}" data-item="${itemKey || ''}" data-idx="${idx}">×</div>
+        </div>
+      `;
+    });
+    // Las fotos viejas de base de datos se muestran sin botón X por seguridad
+    arrUrls.forEach(url => {
+       thumbsHtml += `<img src="${url}" class="foto-thumb" style="margin:0 6px 6px 0; opacity:0.8;">`;
+    });
 
     return `
       <div class="foto-block">
         ${label ? `<label>${label}</label>` : ''}
-        <div class="foto-row" style="flex-wrap:wrap;">
-          <input type="file" accept="image/*" capture="environment" id="${id}" multiple style="display:none;">
-          <label for="${id}" class="foto-btn" style="flex-shrink:0;">➕ Agregar foto</label>
-          ${thumbs.map(src => `<img src="${src}" class="foto-thumb" style="margin-right:4px; margin-bottom:4px;">`).join('')}
+        <div class="foto-row" style="flex-wrap:wrap; gap:0;">
+          <input type="file" accept="image/*" id="${id}" multiple style="display:none;">
+          <label for="${id}" class="foto-btn" style="flex-shrink:0; margin:0 6px 6px 0;">➕ Agregar foto</label>
+          ${thumbsHtml}
         </div>
       </div>
     `;
@@ -419,6 +426,7 @@
     el.addEventListener('change', e => {
       const files = Array.from(e.target.files || []);
       if (files.length > 0) onChange(files);
+      e.target.value = ''; // Limpia el input para permitir elegir la misma foto si se equivocan
     });
   }
 
@@ -439,7 +447,7 @@
        const url = await uploadFoto(filesArr[i], `${pathPrefix}-${i}`);
        if (url) urls.push(url);
     }
-    return urls.join(',');
+    return urls.join(','); // Junta todos los links separados por coma en la base de datos
   }
 
   // =====================================================================
@@ -500,10 +508,8 @@
   async function cargarDatosBasicosCamion(vehiculoId){
     setState({ cargandoUltimoOdometro: true });
     try {
-      // Carga el último odómetro
       const { data: oData } = await supabase.from('turnos').select('odometro_fin').eq('vehiculo_id', vehiculoId).in('estado', ['cerrado', 'con_discrepancia']).order('fecha_fin', { ascending:false }).limit(1).maybeSingle();
-      
-      // Carga el último registro quincenal de fotos para la galería
+      // Buscamos las últimas fotos quincenales guardadas en DB para mostrar la galería al final
       const { data: qData } = await supabase.from('registro_fotografico_quincenal').select('*').eq('vehiculo_id', vehiculoId).order('fecha_registro', { ascending:false }).limit(1).maybeSingle();
       
       setState({ ultimoOdometro: oData ? oData.odometro_fin : 0, ultimoQuincenalDB: qData || null, cargandoUltimoOdometro:false });
@@ -586,6 +592,7 @@
         odometro_fin: parseFloat(state.odo_fin), foto_odometro_fin_url: urlFin, fecha_fin: new Date().toISOString(), estado: 'cerrado'
       }).eq('id', state.turnoId);
       if (closeErr) throw closeErr;
+
       setState({ saving:false, saveError:null, screen:'summary' });
     } catch(e){ setState({ saving:false, saveError: e.message || String(e) }); }
   }
@@ -780,8 +787,8 @@
         <div class="gauge-cluster"><div class="gauge"><div class="gauge-label">Último odómetro registrado</div><div class="gauge-value">${state.cargandoUltimoOdometro ? '…' : Number(ultimo || 0).toLocaleString('es-CL')}</div></div></div>
         <label>Odómetro de inicio (km)</label>
         <input type="text" inputmode="decimal" id="odo_inicio" value="${state.odo_inicio}">
-        ${fotoField('odo_inicio_foto', 'Fotos del tablero', state.odo_inicio_foto)}
-        <button class="btn btn-primary" id="btn-to-checklist" ${state.cargandoUltimoOdometro ? 'disabled' : ''}>Continuar a Checklist</button>
+        ${fotoField('odo_inicio_foto', 'Fotos del tablero', state.odo_inicio_foto, null, 'odo_inicio')}
+        <button class="btn btn-primary" style="margin-top:14px;" id="btn-to-checklist" ${state.cargandoUltimoOdometro ? 'disabled' : ''}>Continuar a Checklist</button>
       </div>
     `;
   }
@@ -795,7 +802,7 @@
     if (momento === 'post') itemsAMostrar = itemsAMostrar.filter(i => !i.nombre.toLowerCase().includes('aceite') && !i.nombre.toLowerCase().includes('refrigerante') && !i.nombre.toLowerCase().includes('agua'));
     const categorias = [...new Set(itemsAMostrar.map(i => i.categoria))];
 
-    // LA MAGIA DE LA GALERÍA AL CERRAR TURNO
+    // GALERÍA VISUAL DE CONSULTA AL CERRAR TURNO
     let galeriaHtml = '';
     if (momento === 'post' && state.ultimoQuincenalDB) {
       const q = state.ultimoQuincenalDB;
@@ -803,10 +810,10 @@
       if (allUrls.length > 0) {
         galeriaHtml = `
           <div style="margin-bottom:16px;">
-            <button class="btn btn-secondary" id="btn-toggle-galeria" style="font-size:13px; padding:10px;">👁 Ver fotos iniciales de carrocería</button>
+            <button class="btn btn-secondary" id="btn-toggle-galeria" style="font-size:13px; padding:10px; width:100%;">👁 Ver fotos iniciales de carrocería</button>
             ${state.mostrarGaleriaPrevia ? `
               <div style="margin-top:10px; background:var(--surface-alt); padding:12px; border-radius:8px;">
-                <div style="font-size:11px; color:var(--text-dim); margin-bottom:8px;">Último registro quincenal guardado:</div>
+                <div style="font-size:11px; color:var(--text-dim); margin-bottom:8px;">Último registro guardado en sistema:</div>
                 <div class="photo-grid" style="grid-template-columns:repeat(auto-fill, minmax(60px, 1fr));">
                   ${allUrls.map(u => `<a href="${u}" target="_blank"><img src="${u}" style="height:60px;"></a>`).join('')}
                 </div>
@@ -839,8 +846,8 @@
               ${respuestas[it.id] === 'nc' ? `
                 <div class="nc-box">
                   <label style="color:var(--warning);">Detalla el problema (Obligatorio)</label>
-                  <textarea data-comentario="${it.id}" data-momento="${momento}" placeholder="Ej: Foco quemado...">${comentarios[it.id]||''}</textarea>
-                  ${fotoField(`chk_foto_${momento}_${it.id}`, 'Fotos del daño', fotos[it.id])}
+                  <textarea data-comentario="${it.id}" data-momento="${momento}" placeholder="Ej: Foco roto en esquina...">${comentarios[it.id]||''}</textarea>
+                  ${fotoField(`chk_foto_${momento}_${it.id}`, 'Fotos del daño', fotos[it.id], null, `checklist_${momento}`, it.id)}
                 </div>
               ` : ''}
             </div>
@@ -861,16 +868,21 @@
         <span class="link-back" data-back="start-readings">‹ Volver</span>
         <div class="eyebrow" style="margin-bottom:4px;">Registro Fotográfico</div>
         <h2 style="font-size:17px; margin-bottom:6px;">Estado Carrocería</h2>
-        <p style="font-size:13px; color:var(--text-dim); margin-bottom:16px;">Sube todas las fotos necesarias por ángulo.</p>
+        <p style="font-size:13px; color:var(--text-dim); margin-bottom:16px;">Agrega todas las fotos necesarias por cada ángulo del vehículo.</p>
         ${saveErrorHtml()}
 
         ${categorias.map(cat => `
           <div class="repo-box">
             <div class="repo-title">${cat.toUpperCase()}</div>
             <input type="file" id="q_${cat}" accept="image/*" multiple style="display:none;">
-            <label for="q_${cat}" class="foto-btn">➕ Sumar fotos</label>
-            <div class="photo-grid">
-              ${Array.from(state.quincenal[cat] || []).map(f => `<img src="${previewUrl(f)}">`).join('')}
+            <label for="q_${cat}" class="foto-btn" style="margin-bottom:10px;">➕ Agregar fotos</label>
+            <div class="photo-grid" style="display:flex; flex-wrap:wrap; gap:6px;">
+              ${Array.from(state.quincenal[cat] || []).map((f, idx) => `
+                <div style="position:relative; display:inline-block;">
+                  <img src="${previewUrl(f)}" class="foto-thumb" style="margin:0;">
+                  <div class="remove-foto-btn" data-group="quincenal" data-item="${cat}" data-idx="${idx}">×</div>
+                </div>
+              `).join('')}
             </div>
           </div>
         `).join('')}
@@ -979,7 +991,7 @@
           <textarea id="g_comentario" placeholder="Especifica en qué se gastó...">${f.comentario || ''}</textarea>
         `}
         
-        ${fotoField('g_foto', 'Fotos de boletas *', f.foto, f.fotoExistenteUrl)}
+        ${fotoField('g_foto', 'Fotos de las boletas *', f.foto, f.fotoExistenteUrl, 'gasto')}
         <button class="btn btn-primary" style="margin-top:14px;" id="btn-revisar-gasto" ${state.saving ? 'disabled' : ''}>Revisar y Confirmar</button>
       </div>
     `;
@@ -987,7 +999,6 @@
 
   function gastoConfirmScreen(){
     const f = state.gastoForm;
-    // Mostrar primera foto como resumen
     const fileSrc = (f.foto && f.foto.length > 0) ? previewUrl(f.foto[0]) : null;
     const existingSrc = f.fotoExistenteUrl ? f.fotoExistenteUrl.split(',')[0] : null;
     const src = fileSrc || existingSrc;
@@ -1025,7 +1036,7 @@
         <h2 style="font-size:17px; margin-bottom:14px;">${state.vehiculo.patente} — Lectura final</h2>
         ${saveErrorHtml()}
         <label>Odómetro final (km)</label><input type="text" inputmode="decimal" id="odo_fin" value="${state.odo_fin}" placeholder="${odoIni}">
-        ${fotoField('odo_fin_foto', 'Fotos del tablero', state.odo_fin_foto)}
+        ${fotoField('odo_fin_foto', 'Fotos del tablero', state.odo_fin_foto, null, 'odo_fin')}
         
         <button class="btn btn-primary" style="margin-top:14px;" id="btn-to-checklist-post">Continuar a Checklist</button>
       </div>
@@ -1050,7 +1061,7 @@
   }
 
   // =====================================================================
-  // EVENTOS (AJUSTADOS PARA ARRAYS DE FOTOS Y VALIDACIÓN AL CLIC)
+  // EVENTOS MULTI-FOTOS Y BORRADO EN TIEMPO REAL
   // =====================================================================
  function bindEvents(){
     document.querySelectorAll('[data-vehiculo]').forEach(el => {
@@ -1090,7 +1101,34 @@
       });
     });
 
-    // FOTOS ACUMULABLES
+    // --- MANEJO DE BORRADO DE FOTOS (BASURERO) ---
+    document.querySelectorAll('.remove-foto-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+         const group = btn.dataset.group;
+         const item = btn.dataset.item;
+         const idx = parseInt(btn.dataset.idx, 10);
+
+         if (group === 'odo_inicio') {
+            const arr = [...state.odo_inicio_foto]; arr.splice(idx, 1);
+            setState({ odo_inicio_foto: arr });
+         } else if (group === 'odo_fin') {
+            const arr = [...state.odo_fin_foto]; arr.splice(idx, 1);
+            setState({ odo_fin_foto: arr });
+         } else if (group === 'gasto') {
+            const arr = [...state.gastoForm.foto]; arr.splice(idx, 1);
+            setStateField('gastoForm', 'foto', arr);
+         } else if (group === 'quincenal') {
+            const arr = [...state.quincenal[item]]; arr.splice(idx, 1);
+            setState({ quincenal: Object.assign({}, state.quincenal, { [item]: arr }) });
+         } else if (group.startsWith('checklist_')) {
+            const key = group === 'checklist_pre' ? 'checklist_pre_fotos' : 'checklist_post_fotos';
+            const arr = [...state[key][item]]; arr.splice(idx, 1);
+            setState({ [key]: Object.assign({}, state[key], { [item]: arr }) });
+         }
+      });
+    });
+
+    // FOTOS ACUMULABLES (SUMAN, NO REEMPLAZAN)
     bindFileInput('odo_inicio_foto', files => setState({ odo_inicio_foto: [...(state.odo_inicio_foto || []), ...files] }));
     bindFileInput('odo_fin_foto', files => setState({ odo_fin_foto: [...(state.odo_fin_foto || []), ...files] }));
     bindFileInput('g_foto', files => setStateField('gastoForm','foto', [...(state.gastoForm.foto || []), ...files]));
@@ -1105,6 +1143,7 @@
         const nuevasFotos = Array.from(e.target.files || []);
         const fotosAnteriores = state.quincenal[cat] || [];
         setState({ quincenal: Object.assign({}, state.quincenal, { [cat]: [...fotosAnteriores, ...nuevasFotos] }) });
+        e.target.value = ''; // Reset
       });
     });
 
@@ -1141,6 +1180,7 @@
         const files = Array.from(e.target.files || []);
         const current = state.checklist_pre_fotos[itemId] || [];
         if (files.length > 0) setState({ checklist_pre_fotos: Object.assign({}, state.checklist_pre_fotos, { [itemId]: [...current, ...files] }) });
+        e.target.value = ''; // Reset
       });
     });
     document.querySelectorAll('[id^="chk_foto_post_"]').forEach(el => {
@@ -1149,6 +1189,7 @@
         const files = Array.from(e.target.files || []);
         const current = state.checklist_post_fotos[itemId] || [];
         if (files.length > 0) setState({ checklist_post_fotos: Object.assign({}, state.checklist_post_fotos, { [itemId]: [...current, ...files] }) });
+        e.target.value = ''; // Reset
       });
     });
 
@@ -1301,3 +1342,5 @@
 
 })();
 </script>
+</body>
+</html>
