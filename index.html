@@ -244,7 +244,7 @@
 
 <div id="app"></div>
 
-<script>
+  <script>
 (function(){
 
   // =====================================================================
@@ -279,9 +279,11 @@
     vehiculo: null,
     ultimoOdometro: null,
     cargandoUltimoOdometro: false,
+    ultimoQuincenalDB: null,
+    mostrarGaleriaPrevia: false,
 
-    odo_inicio: '', odo_inicio_foto: null,
-    odo_fin: '', odo_fin_foto: null,
+    odo_inicio: '', odo_inicio_foto: [],
+    odo_fin: '', odo_fin_foto: [],
 
     checklist_pre: {}, checklist_pre_fotos: {}, checklist_pre_comentarios: {},
     checklist_post: {}, checklist_post_fotos: {}, checklist_post_comentarios: {},
@@ -293,7 +295,7 @@
     gastos: [],
     viajeForm: { scooters:'', baterias:'', odo_salida:'', odo_regreso:'', editId:null },
     viajeCierreForm: { odo_regreso:'' },
-    gastoForm: { tipo:'combustible', monto:'', litros:'', odo:'', foto:null, comentario:'', editId:null, fotoExistenteUrl:null },
+    gastoForm: { tipo:'combustible', monto:'', litros:'', odo:'', foto:[], comentario:'', editId:null, fotoExistenteUrl:null },
 
     saving: false,
     saveError: null,
@@ -365,14 +367,11 @@
     v = allowDecimal ? v.replace(/[^0-9.]/g, '') : v.replace(/[^0-9]/g, '');
     if (allowDecimal){
       const firstDot = v.indexOf('.');
-      if (firstDot !== -1){
-        v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
-      }
+      if (firstDot !== -1) v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
     }
     return v;
   }
 
-  // ESCRITURA FLUIDA SIN REDIBUJAR
   function bindNumericInput(id, onChange, allowDecimal){
     const el = document.getElementById(id);
     if (!el) return;
@@ -388,7 +387,7 @@
   }
 
   // =====================================================================
-  // FOTOS
+  // GESTOR DE MÚLTIPLES FOTOS
   // =====================================================================
   const objectUrlCache = new WeakMap();
   function previewUrl(file){
@@ -397,15 +396,18 @@
     return objectUrlCache.get(file);
   }
 
-  function fotoField(id, label, file, existingUrl){
-    const src = file ? previewUrl(file) : (existingUrl || null);
+  function fotoField(id, label, filesArr, existingUrlsStr){
+    const arrFiles = Array.isArray(filesArr) ? filesArr : (filesArr ? [filesArr] : []);
+    const arrUrls = existingUrlsStr ? existingUrlsStr.split(',') : [];
+    const thumbs = arrFiles.map(f => previewUrl(f)).concat(arrUrls);
+
     return `
       <div class="foto-block">
         ${label ? `<label>${label}</label>` : ''}
-        <div class="foto-row">
-          <input type="file" accept="image/*" capture="environment" id="${id}" style="display:none;">
-          <label for="${id}" class="foto-btn">${src ? '🔁 Cambiar' : '📷 Adjuntar foto'}</label>
-          ${src ? `<img src="${src}" class="foto-thumb">` : ''}
+        <div class="foto-row" style="flex-wrap:wrap;">
+          <input type="file" accept="image/*" capture="environment" id="${id}" multiple style="display:none;">
+          <label for="${id}" class="foto-btn" style="flex-shrink:0;">➕ Agregar foto</label>
+          ${thumbs.map(src => `<img src="${src}" class="foto-thumb" style="margin-right:4px; margin-bottom:4px;">`).join('')}
         </div>
       </div>
     `;
@@ -415,20 +417,29 @@
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('change', e => {
-      const file = e.target.files && e.target.files[0];
-      if (file) onChange(file);
+      const files = Array.from(e.target.files || []);
+      if (files.length > 0) onChange(files);
     });
   }
 
   async function uploadFoto(file, path){
-    if (!file) return null;
-    if (!supabase) return null;
+    if (!file || !supabase) return null;
     const ext = (file.name && file.name.includes('.')) ? file.name.split('.').pop() : 'jpg';
     const fullPath = `${path}-${Date.now()}.${ext}`;
     const { error } = await supabase.storage.from(FOTOS_BUCKET).upload(fullPath, file, { upsert: false });
     if (error) throw error;
     const { data } = supabase.storage.from(FOTOS_BUCKET).getPublicUrl(fullPath);
     return data ? data.publicUrl : null;
+  }
+
+  async function uploadFotosMultiples(filesArr, pathPrefix){
+    if (!filesArr || filesArr.length === 0) return null;
+    let urls = [];
+    for (let i = 0; i < filesArr.length; i++){
+       const url = await uploadFoto(filesArr[i], `${pathPrefix}-${i}`);
+       if (url) urls.push(url);
+    }
+    return urls.join(',');
   }
 
   // =====================================================================
@@ -438,10 +449,7 @@
     setState({ loggingIn:true, loginError:null });
     const { email, password } = state.loginForm;
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error){
-      setState({ loggingIn:false, loginError: 'No se pudo iniciar sesión: ' + error.message });
-      return;
-    }
+    if (error){ setState({ loggingIn:false, loginError: 'No se pudo iniciar sesión: ' + error.message }); return; }
     setState({ loggingIn:false, session: data.session });
     init();
   }
@@ -456,28 +464,20 @@
   }
 
   async function init(){
-    if (!supabase){
-      setState({ loading:false, loadError:'Falta configurar SUPABASE_URL.' });
-      return;
-    }
+    if (!supabase){ setState({ loading:false, loadError:'Falta configurar SUPABASE_URL.' }); return; }
     try {
       const { data: authData, error: authErr } = await supabase.auth.getUser();
       if (authErr || !authData || !authData.user) throw new Error('No hay sesión activa.');
-
       const { data: perfil, error: perfilErr } = await supabase.from('usuarios').select('id, nombre, rol').eq('auth_user_id', authData.user.id).maybeSingle();
       if (perfilErr) throw perfilErr;
-      if (!perfil) throw new Error('Tu cuenta no está vinculada a un chofer en la tabla "usuarios".');
+      if (!perfil) throw new Error('Tu cuenta no está vinculada a un chofer.');
 
       const { data: vehiculos, error: vehErr } = await supabase.from('vehiculos').select('*').eq('activo', true).order('patente');
       if (vehErr) throw vehErr;
-
       const { data: items, error: itemsErr } = await supabase.from('checklist_items').select('*').eq('activo', true).order('categoria');
       if (itemsErr) throw itemsErr;
 
-      const { data: turnoAbierto } = await supabase
-        .from('turnos').select('*')
-        .eq('chofer_id', perfil.id).eq('estado', 'abierto')
-        .order('fecha_inicio', { ascending: false }).limit(1).maybeSingle();
+      const { data: turnoAbierto } = await supabase.from('turnos').select('*').eq('chofer_id', perfil.id).eq('estado', 'abierto').order('fecha_inicio', { ascending: false }).limit(1).maybeSingle();
 
       if (turnoAbierto) {
         const vehiculoRecuperado = vehiculos.find(v => v.id === turnoAbierto.vehiculo_id);
@@ -485,28 +485,30 @@
           supabase.from('viajes_bodega').select('*').eq('turno_id', turnoAbierto.id),
           supabase.from('gastos').select('*').eq('turno_id', turnoAbierto.id)
         ]);
-
         setState({
           loading: false, chofer: perfil, vehiculos: vehiculos, checklistItems: items,
           turnoId: turnoAbierto.id, vehiculo: vehiculoRecuperado, odo_inicio: turnoAbierto.odometro_inicio,
           viajes: viajes || [], gastos: gastos || [], screen: 'active' 
         });
+        cargarDatosBasicosCamion(vehiculoRecuperado.id);
       } else {
         setState({ loading:false, chofer: perfil, vehiculos: vehiculos || [], checklistItems: items || [], screen: 'select-vehicle' });
       }
-    } catch(e){
-      setState({ loading:false, loadError: e.message || String(e) });
-    }
+    } catch(e){ setState({ loading:false, loadError: e.message || String(e) }); }
   }
 
-  async function cargarUltimoOdometro(vehiculoId){
+  async function cargarDatosBasicosCamion(vehiculoId){
     setState({ cargandoUltimoOdometro: true });
     try {
-      const { data, error } = await supabase.from('turnos').select('odometro_fin').eq('vehiculo_id', vehiculoId).in('estado', ['cerrado', 'con_discrepancia']).order('fecha_fin', { ascending:false }).limit(1).maybeSingle();
-      if (error) throw error;
-      setState({ ultimoOdometro: data ? data.odometro_fin : 0, cargandoUltimoOdometro:false });
+      // Carga el último odómetro
+      const { data: oData } = await supabase.from('turnos').select('odometro_fin').eq('vehiculo_id', vehiculoId).in('estado', ['cerrado', 'con_discrepancia']).order('fecha_fin', { ascending:false }).limit(1).maybeSingle();
+      
+      // Carga el último registro quincenal de fotos para la galería
+      const { data: qData } = await supabase.from('registro_fotografico_quincenal').select('*').eq('vehiculo_id', vehiculoId).order('fecha_registro', { ascending:false }).limit(1).maybeSingle();
+      
+      setState({ ultimoOdometro: oData ? oData.odometro_fin : 0, ultimoQuincenalDB: qData || null, cargandoUltimoOdometro:false });
     } catch(e){
-      setState({ ultimoOdometro: 0, cargandoUltimoOdometro:false });
+      setState({ ultimoOdometro: 0, ultimoQuincenalDB: null, cargandoUltimoOdometro:false });
     }
   }
 
@@ -515,9 +517,7 @@
     if (isNaN(v)) return { status:'empty' };
     if (ultimoValor === null || ultimoValor === undefined) return { status:'ok', diff:0 };
     if (v < ultimoValor) return { status:'error', diff: ultimoValor - v };
-    const diff = v - ultimoValor;
-    if (diff > 50) return { status:'discrepancia', diff };
-    return { status:'ok', diff };
+    return { status:'ok', diff: v - ultimoValor };
   }
 
   // =====================================================================
@@ -545,10 +545,11 @@
     for (const item of itemsAProcesar){
       const val = respuestas[item.id];
       if (!val) continue;
-      const file = fotos[item.id];
-      const fotoUrl = file ? await uploadFoto(file, `checklist/${checklist.id}/${item.id}`) : null;
+      const fileArr = fotos[item.id] || [];
+      const urlsUnidas = await uploadFotosMultiples(fileArr, `checklist/${checklist.id}/${item.id}`);
+      
       const { error: rErr } = await supabase.from('inspeccion_respuestas').insert({
-        checklist_id: checklist.id, item_id: item.id, estado: val, comentario: comentarios[item.id] || null, foto_url: fotoUrl
+        checklist_id: checklist.id, item_id: item.id, estado: val, comentario: comentarios[item.id] || null, foto_url: urlsUnidas
       });
       if (rErr) throw new Error(`Error en el ítem "${item.nombre}": ${rErr.message}`);
     }
@@ -559,10 +560,10 @@
     setState({ saving:true, saveError:null });
     try {
       const checklist = await guardarChecklist('pre', null);
-      const fotoOdoInicio = await uploadFoto(state.odo_inicio_foto, `turnos/odo-inicio-${state.vehiculo.id}`);
+      const urlInicio = await uploadFotosMultiples(state.odo_inicio_foto, `turnos/odo-inicio-${state.vehiculo.id}`);
 
       const { data: turno, error: tErr } = await supabase.from('turnos').insert({
-        chofer_id: state.chofer.id, vehiculo_id: state.vehiculo.id, odometro_inicio: parseFloat(state.odo_inicio), foto_odometro_inicio_url: fotoOdoInicio
+        chofer_id: state.chofer.id, vehiculo_id: state.vehiculo.id, odometro_inicio: parseFloat(state.odo_inicio), foto_odometro_inicio_url: urlInicio
       }).select().single();
       if (tErr) throw tErr;
 
@@ -572,31 +573,24 @@
         saving:false, saveError:null, turnoId: turno.id, screen:'viaje-form',
         viajeForm: { scooters:'', baterias:'', odo_salida: state.odo_inicio, odo_regreso:'', editId:null },
       });
-    } catch(e){
-      setState({ saving:false, saveError: e.message || String(e) });
-    }
+    } catch(e){ setState({ saving:false, saveError: e.message || String(e) }); }
   }
 
   async function confirmarChecklistPost(){
     setState({ saving:true, saveError:null });
     try {
       await guardarChecklist('post', state.turnoId);
-      const fotoOdoFin = await uploadFoto(state.odo_fin_foto, `turnos/odo-fin-${state.turnoId}`);
+      const urlFin = await uploadFotosMultiples(state.odo_fin_foto, `turnos/odo-fin-${state.turnoId}`);
 
       const { error: closeErr } = await supabase.from('turnos').update({
-        odometro_fin: parseFloat(state.odo_fin), foto_odometro_fin_url: fotoOdoFin, fecha_fin: new Date().toISOString(), estado: 'cerrado'
+        odometro_fin: parseFloat(state.odo_fin), foto_odometro_fin_url: urlFin, fecha_fin: new Date().toISOString(), estado: 'cerrado'
       }).eq('id', state.turnoId);
       if (closeErr) throw closeErr;
-
       setState({ saving:false, saveError:null, screen:'summary' });
-    } catch(e){
-      setState({ saving:false, saveError: e.message || String(e) });
-    }
+    } catch(e){ setState({ saving:false, saveError: e.message || String(e) }); }
   }
 
-  function viajeEnCurso(){
-    return state.viajes.find(v => v.odometro_regreso === null || v.odometro_regreso === undefined) || null;
-  }
+  function viajeEnCurso(){ return state.viajes.find(v => v.odometro_regreso === null || v.odometro_regreso === undefined) || null; }
 
   function odoSugeridoNuevoViaje(){
     const finalizados = state.viajes.filter(v => v.odometro_regreso !== null && v.odometro_regreso !== undefined);
@@ -608,149 +602,107 @@
     const f = state.viajeForm;
     const odoSalida = parseFloat(f.odo_salida);
     const odoIni = parseFloat(state.odo_inicio);
-    
-    if (isNaN(odoSalida) || odoSalida < odoIni) {
-      setState({ saveError: `⚠ El odómetro de salida no puede ser menor al inicio del turno (${Number(odoIni).toLocaleString('es-CL')} km).` });
-      return;
-    }
+    if (isNaN(odoSalida) || odoSalida < odoIni) { setState({ saveError: `⚠ Salida no puede ser menor a ${Number(odoIni).toLocaleString('es-CL')} km.` }); return; }
 
     setState({ saving:true, saveError:null });
     try {
       const { data, error } = await supabase.from('viajes_bodega').insert({
         turno_id: state.turnoId, hora_salida_bodega: new Date().toISOString(), hora_regreso_centro: null,
-        odometro_salida: odoSalida, odometro_regreso: null,
-        scooters_cargados: parseInt(f.scooters, 10) || 0, baterias_cargadas: parseInt(f.baterias, 10) || 0,
+        odometro_salida: odoSalida, odometro_regreso: null, scooters_cargados: parseInt(f.scooters, 10) || 0, baterias_cargadas: parseInt(f.baterias, 10) || 0,
       }).select().single();
       if (error) throw error;
       setState({ saving:false, saveError:null, viajes:[...state.viajes, data], screen:'active' });
-    } catch(e){
-      setState({ saving:false, saveError: e.message || String(e) });
-    }
+    } catch(e){ setState({ saving:false, saveError: e.message || String(e) }); }
   }
 
   async function actualizarViaje(){
     const f = state.viajeForm;
     const odoSalida = parseFloat(f.odo_salida);
     const odoIni = parseFloat(state.odo_inicio);
-    
-    if (isNaN(odoSalida) || odoSalida < odoIni) {
-      setState({ saveError: `⚠ El odómetro de salida no puede ser menor al inicio del turno (${Number(odoIni).toLocaleString('es-CL')} km).` });
-      return;
-    }
-
+    if (isNaN(odoSalida) || odoSalida < odoIni) { setState({ saveError: `⚠ Salida no puede ser menor a ${Number(odoIni).toLocaleString('es-CL')} km.` }); return; }
     if (f.odo_regreso !== '') {
-      const odoRegreso = parseFloat(f.odo_regreso);
-      if (odoRegreso < odoSalida) {
-        setState({ saveError: `⚠ El odómetro de llegada no puede ser menor al de salida.` });
-        return;
-      }
+      if (parseFloat(f.odo_regreso) < odoSalida) { setState({ saveError: `⚠ Llegada no puede ser menor a salida.` }); return; }
     }
 
     setState({ saving:true, saveError:null });
     try {
-      const patch = {
-        scooters_cargados: parseInt(f.scooters, 10) || 0,
-        baterias_cargadas: parseInt(f.baterias, 10) || 0,
-        odometro_salida: odoSalida,
-      };
-      if (f.odo_regreso !== ''){
-        patch.odometro_regreso = parseFloat(f.odo_regreso);
-      }
+      const patch = { scooters_cargados: parseInt(f.scooters, 10) || 0, baterias_cargadas: parseInt(f.baterias, 10) || 0, odometro_salida: odoSalida };
+      if (f.odo_regreso !== '') patch.odometro_regreso = parseFloat(f.odo_regreso);
       const { data, error } = await supabase.from('viajes_bodega').update(patch).eq('id', f.editId).select().single();
       if (error) throw error;
       setState({ saving:false, saveError:null, viajes: state.viajes.map(v => v.id === data.id ? data : v), screen:'active' });
-    } catch(e){
-      setState({ saving:false, saveError: e.message || String(e) });
-    }
+    } catch(e){ setState({ saving:false, saveError: e.message || String(e) }); }
   }
 
   async function finalizarViaje(){
     const v = viajeEnCurso();
     if (!v) return;
     const odoRegreso = parseFloat(state.viajeCierreForm.odo_regreso);
-
-    if (isNaN(odoRegreso) || odoRegreso < v.odometro_salida) {
-      setState({ saveError: `⚠ El odómetro de llegada no puede ser menor a la salida (${Number(v.odometro_salida).toLocaleString('es-CL')} km).` });
-      return;
-    }
+    if (isNaN(odoRegreso) || odoRegreso < v.odometro_salida) { setState({ saveError: `⚠ Llegada no puede ser menor a ${Number(v.odometro_salida).toLocaleString('es-CL')} km.` }); return; }
 
     setState({ saving:true, saveError:null });
     try {
-      const { data, error } = await supabase.from('viajes_bodega').update({
-        odometro_regreso: odoRegreso, hora_regreso_centro: new Date().toISOString(),
-      }).eq('id', v.id).select().single();
+      const { data, error } = await supabase.from('viajes_bodega').update({ odometro_regreso: odoRegreso, hora_regreso_centro: new Date().toISOString() }).eq('id', v.id).select().single();
       if (error) throw error;
       setState({ saving:false, saveError:null, viajes: state.viajes.map(x => x.id === data.id ? data : x), viajeCierreForm:{odo_regreso:''}, screen:'active' });
-    } catch(e){
-      setState({ saving:false, saveError: e.message || String(e) });
-    }
+    } catch(e){ setState({ saving:false, saveError: e.message || String(e) }); }
   }
 
   async function guardarGasto(){
     setState({ saving:true, saveError:null });
     try {
       const f = state.gastoForm;
-      const fotoUrl = f.foto ? await uploadFoto(f.foto, `gastos/${state.turnoId}-${Date.now()}`) : null;
+      const urlsUnidas = await uploadFotosMultiples(f.foto, `gastos/${state.turnoId}-${Date.now()}`);
       const { data, error } = await supabase.from('gastos').insert({
         turno_id: state.turnoId, vehiculo_id: state.vehiculo.id, tipo: f.tipo, monto: parseFloat(f.monto) || 0,
         litros: f.tipo === 'combustible' ? (parseFloat(f.litros) || null) : null, 
         odometro_al_cargar: f.tipo === 'combustible' ? (parseFloat(f.odo) || null) : null, 
-        boleta_foto_url: fotoUrl,
-        comentario: f.tipo !== 'combustible' ? f.comentario : null
+        boleta_foto_url: urlsUnidas, comentario: f.tipo !== 'combustible' ? f.comentario : null
       }).select().single();
       if (error) throw error;
       setState({ saving:false, saveError:null, gastos:[...state.gastos, data], screen:'active' });
-    } catch(e){
-      setState({ saving:false, saveError: e.message || String(e) });
-    }
+    } catch(e){ setState({ saving:false, saveError: e.message || String(e) }); }
   }
 
   async function actualizarGasto(){
     setState({ saving:true, saveError:null });
     try {
       const f = state.gastoForm;
-      const fotoUrl = f.foto ? await uploadFoto(f.foto, `gastos/${state.turnoId}-${Date.now()}`) : f.fotoExistenteUrl;
+      let urlsNuevas = f.fotoExistenteUrl;
+      if (f.foto && f.foto.length > 0) { urlsNuevas = await uploadFotosMultiples(f.foto, `gastos/${state.turnoId}-${Date.now()}`); }
+      
       const patch = {
         tipo: f.tipo, monto: parseFloat(f.monto) || 0,
         litros: f.tipo === 'combustible' ? (parseFloat(f.litros) || null) : null,
         odometro_al_cargar: f.tipo === 'combustible' ? (parseFloat(f.odo) || null) : null,
-        boleta_foto_url: fotoUrl,
-        comentario: f.tipo !== 'combustible' ? f.comentario : null
+        boleta_foto_url: urlsNuevas, comentario: f.tipo !== 'combustible' ? f.comentario : null
       };
       const { data, error } = await supabase.from('gastos').update(patch).eq('id', f.editId).select().single();
       if (error) throw error;
       setState({ saving:false, saveError:null, gastos: state.gastos.map(g => g.id === data.id ? data : g), screen:'active' });
-    } catch(e){
-      setState({ saving:false, saveError: e.message || String(e) });
-    }
+    } catch(e){ setState({ saving:false, saveError: e.message || String(e) }); }
   }
 
   async function guardarQuincenal(){
     setState({ saving:true, saveError:null });
     try {
       const links = { puertas:[], parachoques:[], focos:[], espejos:[], costados:[] };
-      const catUrls = Object.keys(links);
-      
-      for(const cat of catUrls){
+      for(const cat of Object.keys(links)){
         const files = state.quincenal[cat] || [];
-        for(const f of files){
-          const url = await uploadFoto(f, `quincenal/${state.vehiculo.id}/${cat}`);
+        for(let i=0; i<files.length; i++){
+          const url = await uploadFoto(files[i], `quincenal/${state.vehiculo.id}/${cat}-${i}`);
           if(url) links[cat].push(url);
         }
       }
-
       const { error } = await supabase.from('registro_fotografico_quincenal').insert({
         vehiculo_id: state.vehiculo.id, chofer_id: state.chofer.id,
         fotos_puertas: links.puertas, fotos_parachoques: links.parachoques,
         fotos_focos: links.focos, fotos_espejos: links.espejos, fotos_costados: links.costados
       });
       if (error) throw error;
-
       alert("Registro de carrocería guardado con éxito.");
       setState({ saving:false, screen:'start-readings', quincenal:{ puertas:[], parachoques:[], focos:[], espejos:[], costados:[] } });
-    } catch(e) {
-      setState({ saving:false, saveError: "Error al subir fotos: " + e.message });
-    }
+    } catch(e) { setState({ saving:false, saveError: "Error al subir fotos: " + e.message }); }
   }
 
   // =====================================================================
@@ -785,27 +737,19 @@
             <h1>Iniciar sesión</h1>
             ${state.loginError ? `<div class="login-error">⚠ ${state.loginError}</div>` : ''}
             <label>Correo</label>
-            <input type="email" id="login_email" value="${state.loginForm.email}" placeholder="chofer@tuempresa.com">
+            <input type="email" id="login_email" value="${state.loginForm.email}">
             <label>Contraseña</label>
             <input type="password" id="login_password" value="${state.loginForm.password}">
-            <button class="btn btn-primary" style="width:100%;" id="btn-login" ${state.loggingIn ? 'disabled' : ''}>${state.loggingIn ? 'Ingresando…' : 'Ingresar'}</button>
+            <button class="btn btn-primary" id="btn-login" ${state.loggingIn ? 'disabled' : ''}>${state.loggingIn ? 'Ingresando…' : 'Ingresar'}</button>
           </div>
         </div>
       </div>
     `;
   }
 
-  function loadingScreen(){
-    return `<div class="center-screen"><div class="spinner"></div><div style="font-size:13px; color:var(--text-dim);">Cargando datos…</div></div>`;
-  }
-
-  function errorScreen(){
-    return `<div class="section"><div class="alert">⚠ ${state.loadError}</div></div>`;
-  }
-
-  function saveErrorHtml(){
-    return state.saveError ? `<div class="save-error">⚠ ${state.saveError}</div>` : '';
-  }
+  function loadingScreen(){ return `<div class="center-screen"><div class="spinner"></div><div style="font-size:13px; color:var(--text-dim);">Cargando…</div></div>`; }
+  function errorScreen(){ return `<div class="section"><div class="alert">⚠ ${state.loadError}</div></div>`; }
+  function saveErrorHtml(){ return state.saveError ? `<div class="save-error">⚠ ${state.saveError}</div>` : ''; }
 
   function selectVehicleScreen(){
     return `
@@ -817,8 +761,7 @@
             <div class="veh-item" data-vehiculo="${v.id}">
               <div><div class="veh-patente">${v.patente}</div><div class="veh-sub">${[v.marca, v.modelo].filter(Boolean).join(' ')}</div></div>
               <div class="chev">›</div>
-            </div>
-          `).join('')}
+            </div>`).join('')}
         </div>
       </div>
     `;
@@ -827,27 +770,17 @@
   function startReadingsScreen(){
     const v = state.vehiculo;
     const ultimo = state.ultimoOdometro;
-
     return `
       <div class="section">
         <span class="link-back" data-back="select-vehicle">‹ Cambiar camión</span>
         <div class="eyebrow" style="margin-bottom:4px;">Paso 2 de 3 · Lectura de inicio</div>
         <h2 style="font-size:17px; margin-bottom:14px;">${v.patente}</h2>
         ${saveErrorHtml()}
-        
         <button class="btn btn-secondary" id="btn-quincenal" style="margin-bottom:20px;">📷 Registro de Carrocería</button>
-
-        <div class="gauge-cluster">
-          <div class="gauge">
-            <div class="gauge-label">Último odómetro registrado</div>
-            <div class="gauge-value">${state.cargandoUltimoOdometro ? '…' : Number(ultimo || 0).toLocaleString('es-CL')}</div>
-          </div>
-        </div>
-
+        <div class="gauge-cluster"><div class="gauge"><div class="gauge-label">Último odómetro registrado</div><div class="gauge-value">${state.cargandoUltimoOdometro ? '…' : Number(ultimo || 0).toLocaleString('es-CL')}</div></div></div>
         <label>Odómetro de inicio (km)</label>
         <input type="text" inputmode="decimal" id="odo_inicio" value="${state.odo_inicio}">
-        ${fotoField('odo_inicio_foto', 'Foto del odómetro', state.odo_inicio_foto)}
-
+        ${fotoField('odo_inicio_foto', 'Fotos del tablero', state.odo_inicio_foto)}
         <button class="btn btn-primary" id="btn-to-checklist" ${state.cargandoUltimoOdometro ? 'disabled' : ''}>Continuar a Checklist</button>
       </div>
     `;
@@ -859,15 +792,30 @@
     const comentarios = momento === 'pre' ? state.checklist_pre_comentarios : state.checklist_post_comentarios;
     
     let itemsAMostrar = state.checklistItems;
-    if (momento === 'post') {
-      itemsAMostrar = itemsAMostrar.filter(i => 
-        !i.nombre.toLowerCase().includes('aceite') && 
-        !i.nombre.toLowerCase().includes('refrigerante') &&
-        !i.nombre.toLowerCase().includes('agua')
-      );
-    }
-
+    if (momento === 'post') itemsAMostrar = itemsAMostrar.filter(i => !i.nombre.toLowerCase().includes('aceite') && !i.nombre.toLowerCase().includes('refrigerante') && !i.nombre.toLowerCase().includes('agua'));
     const categorias = [...new Set(itemsAMostrar.map(i => i.categoria))];
+
+    // LA MAGIA DE LA GALERÍA AL CERRAR TURNO
+    let galeriaHtml = '';
+    if (momento === 'post' && state.ultimoQuincenalDB) {
+      const q = state.ultimoQuincenalDB;
+      const allUrls = [...(q.fotos_puertas||[]), ...(q.fotos_parachoques||[]), ...(q.fotos_focos||[]), ...(q.fotos_espejos||[]), ...(q.fotos_costados||[])];
+      if (allUrls.length > 0) {
+        galeriaHtml = `
+          <div style="margin-bottom:16px;">
+            <button class="btn btn-secondary" id="btn-toggle-galeria" style="font-size:13px; padding:10px;">👁 Ver fotos iniciales de carrocería</button>
+            ${state.mostrarGaleriaPrevia ? `
+              <div style="margin-top:10px; background:var(--surface-alt); padding:12px; border-radius:8px;">
+                <div style="font-size:11px; color:var(--text-dim); margin-bottom:8px;">Último registro quincenal guardado:</div>
+                <div class="photo-grid" style="grid-template-columns:repeat(auto-fill, minmax(60px, 1fr));">
+                  ${allUrls.map(u => `<a href="${u}" target="_blank"><img src="${u}" style="height:60px;"></a>`).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }
+    }
 
     return `
       <div class="section">
@@ -875,6 +823,7 @@
         <div class="eyebrow" style="margin-bottom:4px;">Paso 3 de 3 · Checklist ${momento.toUpperCase()}</div>
         <h2 style="font-size:17px; margin-bottom:14px;">Inspección técnica</h2>
         ${saveErrorHtml()}
+        ${galeriaHtml}
 
         ${categorias.map(cat => `
           <div class="checklist-cat">${cat}</div>
@@ -891,7 +840,7 @@
                 <div class="nc-box">
                   <label style="color:var(--warning);">Detalla el problema (Obligatorio)</label>
                   <textarea data-comentario="${it.id}" data-momento="${momento}" placeholder="Ej: Foco quemado...">${comentarios[it.id]||''}</textarea>
-                  ${fotoField(`chk_foto_${momento}_${it.id}`, 'Foto del detalle', fotos[it.id])}
+                  ${fotoField(`chk_foto_${momento}_${it.id}`, 'Fotos del daño', fotos[it.id])}
                 </div>
               ` : ''}
             </div>
@@ -912,14 +861,14 @@
         <span class="link-back" data-back="start-readings">‹ Volver</span>
         <div class="eyebrow" style="margin-bottom:4px;">Registro Fotográfico</div>
         <h2 style="font-size:17px; margin-bottom:6px;">Estado Carrocería</h2>
-        <p style="font-size:13px; color:var(--text-dim); margin-bottom:16px;">Sube fotos de todos los ángulos del vehículo para mantener el respaldo visual.</p>
+        <p style="font-size:13px; color:var(--text-dim); margin-bottom:16px;">Sube todas las fotos necesarias por ángulo.</p>
         ${saveErrorHtml()}
 
         ${categorias.map(cat => `
           <div class="repo-box">
             <div class="repo-title">${cat.toUpperCase()}</div>
             <input type="file" id="q_${cat}" accept="image/*" multiple style="display:none;">
-            <label for="q_${cat}" class="foto-btn">➕ Seleccionar fotos</label>
+            <label for="q_${cat}" class="foto-btn">➕ Sumar fotos</label>
             <div class="photo-grid">
               ${Array.from(state.quincenal[cat] || []).map(f => `<img src="${previewUrl(f)}">`).join('')}
             </div>
@@ -944,10 +893,7 @@
           <div class="veh-sub" style="margin-bottom:14px;">${[v.marca, v.modelo].filter(Boolean).join(' ')}</div>
           <div class="gauge-cluster"><div class="gauge"><div class="gauge-label">Odómetro inicio</div><div class="gauge-value">${Number(parseFloat(state.odo_inicio)).toLocaleString('es-CL')}</div></div></div>
         </div>
-        <div class="stat-row">
-          <div class="stat"><div class="stat-label">Viajes</div><div class="stat-value">${state.viajes.length}</div></div>
-          <div class="stat"><div class="stat-label">Gastos</div><div class="stat-value">$${totalGastos.toLocaleString('es-CL')}</div></div>
-        </div>
+        <div class="stat-row"><div class="stat"><div class="stat-label">Viajes</div><div class="stat-value">${state.viajes.length}</div></div><div class="stat"><div class="stat-label">Gastos</div><div class="stat-value">$${totalGastos.toLocaleString('es-CL')}</div></div></div>
         ${enCurso ? `
           <div class="card" style="border-color:var(--warning);">
             <div class="badge badge-warn" style="margin-bottom:8px;">🚚 Viaje en curso</div>
@@ -955,10 +901,7 @@
             <button class="btn btn-primary" id="btn-finalizar-viaje-activo">Finalizar viaje</button>
           </div>
         ` : ''}
-        <div class="btn-row">
-          <button class="btn btn-secondary" id="btn-nuevo-viaje" ${enCurso ? 'disabled' : ''}>${enCurso ? 'Viaje en curso…' : '+ Iniciar viaje'}</button>
-          <button class="btn btn-secondary" id="btn-nuevo-gasto">+ Gasto</button>
-        </div>
+        <div class="btn-row"><button class="btn btn-secondary" id="btn-nuevo-viaje" ${enCurso ? 'disabled' : ''}>+ Iniciar viaje</button><button class="btn btn-secondary" id="btn-nuevo-gasto">+ Gasto</button></div>
         ${renderLogList()}
         <button class="btn btn-danger" id="btn-cerrar-turno" style="margin-top:8px;" ${enCurso ? 'disabled' : ''}>${enCurso ? 'Finaliza el viaje para cerrar turno' : 'Cerrar Turno'}</button>
       </div>
@@ -972,18 +915,9 @@
       if (it.tipo === 'viaje'){
         const enCursoItem = it.data.odometro_regreso === null || it.data.odometro_regreso === undefined;
         const km = enCursoItem ? null : (parseFloat(it.data.odometro_regreso) - parseFloat(it.data.odometro_salida));
-        return `<div class="log-item" data-edit-viaje="${it.data.id}" style="cursor:pointer;">
-          <div class="log-top">
-            <span class="log-title">Viaje a bodega</span>
-            <span class="log-meta">${enCursoItem ? '<span class="badge badge-warn" style="padding:2px 8px;">En curso</span>' : km.toFixed(0) + ' km'}</span>
-          </div>
-          <div class="log-meta">${it.data.scooters_cargados || 0} scooters · ${it.data.baterias_cargadas || 0} baterías</div>
-        </div>`;
+        return `<div class="log-item" data-edit-viaje="${it.data.id}" style="cursor:pointer;"><div class="log-top"><span class="log-title">Viaje a bodega</span><span class="log-meta">${enCursoItem ? '<span class="badge badge-warn" style="padding:2px 8px;">En curso</span>' : km.toFixed(0) + ' km'}</span></div><div class="log-meta">${it.data.scooters_cargados || 0} scooters · ${it.data.baterias_cargadas || 0} baterías</div></div>`;
       }
-      return `<div class="log-item" data-edit-gasto="${it.data.id}" style="cursor:pointer;">
-        <div class="log-top"><span class="log-title">${TIPO_GASTO_LABEL[it.data.tipo] || it.data.tipo}</span><span class="log-meta">$${(parseFloat(it.data.monto)||0).toLocaleString('es-CL')}</span></div>
-        ${it.data.litros ? `<div class="log-meta">${it.data.litros} L · odómetro ${Number(it.data.odometro_al_cargar).toLocaleString('es-CL')}</div>` : ''}
-      </div>`;
+      return `<div class="log-item" data-edit-gasto="${it.data.id}" style="cursor:pointer;"><div class="log-top"><span class="log-title">${TIPO_GASTO_LABEL[it.data.tipo] || it.data.tipo}</span><span class="log-meta">$${(parseFloat(it.data.monto)||0).toLocaleString('es-CL')}</span></div>${it.data.litros ? `<div class="log-meta">${it.data.litros} L · odómetro ${Number(it.data.odometro_al_cargar).toLocaleString('es-CL')}</div>` : ''}</div>`;
     }).join('');
   }
 
@@ -991,7 +925,6 @@
     const f = state.viajeForm;
     const esEdicion = !!f.editId;
     const mostrarRegreso = esEdicion && f.odo_regreso !== '';
-
     return `
       <div class="section">
         <span class="link-back" data-back="active">‹ Volver</span>
@@ -1001,7 +934,6 @@
         <label>Baterías cargadas</label><input type="text" inputmode="numeric" id="v_baterias" value="${f.baterias}">
         <label>Odómetro al SALIR de bodega (km)</label><input type="text" inputmode="decimal" id="v_odo_salida" value="${f.odo_salida}">
         ${mostrarRegreso ? `<label>Odómetro al LLEGAR a bodega (km)</label><input type="text" inputmode="decimal" id="v_odo_regreso" value="${f.odo_regreso}">` : ''}
-        
         <button class="btn btn-primary" style="margin-top:14px;" id="btn-guardar-viaje" ${state.saving ? 'disabled' : ''}>${state.saving ? 'Guardando…' : (esEdicion ? 'Guardar cambios' : 'Iniciar Viaje')}</button>
       </div>
     `;
@@ -1011,7 +943,6 @@
     const v = viajeEnCurso();
     if (!v) return `<div class="section"><div class="alert">No hay ningún viaje en curso.</div><span class="link-back" data-back="active">‹ Volver</span></div>`;
     const f = state.viajeCierreForm;
-
     return `
       <div class="section">
         <span class="link-back" data-back="active">‹ Volver</span>
@@ -1021,7 +952,6 @@
         <div class="gauge-cluster"><div class="gauge"><div class="gauge-label">Odómetro al SALIR de bodega</div><div class="gauge-value">${Number(v.odometro_salida).toLocaleString('es-CL')}</div></div></div>
         <label>Odómetro al LLEGAR a bodega (km)</label>
         <input type="text" inputmode="decimal" id="vc_odo_regreso" value="${f.odo_regreso}" placeholder="${v.odometro_salida}">
-        
         <button class="btn btn-primary" style="margin-top:14px;" id="btn-finalizar-viaje" ${state.saving ? 'disabled' : ''}>${state.saving ? 'Guardando…' : 'Finalizar Viaje'}</button>
       </div>
     `;
@@ -1030,7 +960,6 @@
   function gastoFormScreen(){
     const f = state.gastoForm;
     const esEdicion = !!f.editId;
-
     return `
       <div class="section">
         <span class="link-back" data-back="active">‹ Volver</span>
@@ -1050,7 +979,7 @@
           <textarea id="g_comentario" placeholder="Especifica en qué se gastó...">${f.comentario || ''}</textarea>
         `}
         
-        ${fotoField('g_foto', 'Foto de la boleta *', f.foto, f.fotoExistenteUrl)}
+        ${fotoField('g_foto', 'Fotos de boletas *', f.foto, f.fotoExistenteUrl)}
         <button class="btn btn-primary" style="margin-top:14px;" id="btn-revisar-gasto" ${state.saving ? 'disabled' : ''}>Revisar y Confirmar</button>
       </div>
     `;
@@ -1058,7 +987,11 @@
 
   function gastoConfirmScreen(){
     const f = state.gastoForm;
-    const src = f.foto ? previewUrl(f.foto) : f.fotoExistenteUrl;
+    // Mostrar primera foto como resumen
+    const fileSrc = (f.foto && f.foto.length > 0) ? previewUrl(f.foto[0]) : null;
+    const existingSrc = f.fotoExistenteUrl ? f.fotoExistenteUrl.split(',')[0] : null;
+    const src = fileSrc || existingSrc;
+
     return `
       <div class="section">
         <span class="link-back" data-back="gasto-form">‹ Editar datos</span>
@@ -1085,7 +1018,6 @@
 
   function closeReadingsScreen(){
     const odoIni = parseFloat(state.odo_inicio);
-
     return `
       <div class="section">
         <span class="link-back" data-back="active">‹ Volver</span>
@@ -1093,7 +1025,7 @@
         <h2 style="font-size:17px; margin-bottom:14px;">${state.vehiculo.patente} — Lectura final</h2>
         ${saveErrorHtml()}
         <label>Odómetro final (km)</label><input type="text" inputmode="decimal" id="odo_fin" value="${state.odo_fin}" placeholder="${odoIni}">
-        ${fotoField('odo_fin_foto', 'Foto del odómetro', state.odo_fin_foto)}
+        ${fotoField('odo_fin_foto', 'Fotos del tablero', state.odo_fin_foto)}
         
         <button class="btn btn-primary" style="margin-top:14px;" id="btn-to-checklist-post">Continuar a Checklist</button>
       </div>
@@ -1118,21 +1050,21 @@
   }
 
   // =====================================================================
-  // EVENTOS
+  // EVENTOS (AJUSTADOS PARA ARRAYS DE FOTOS Y VALIDACIÓN AL CLIC)
   // =====================================================================
  function bindEvents(){
     document.querySelectorAll('[data-vehiculo]').forEach(el => {
       el.addEventListener('click', () => {
         const v = state.vehiculos.find(x => x.id === el.dataset.vehiculo);
-        setState({ vehiculo: v, screen:'start-readings', odo_inicio:'', odo_inicio_foto:null, ultimoOdometro:null, checklist_pre:{}, checklist_pre_fotos:{}, checklist_pre_comentarios:{} });
-        cargarUltimoOdometro(v.id);
+        setState({ vehiculo: v, screen:'start-readings', odo_inicio:'', odo_inicio_foto:[], ultimoOdometro:null, checklist_pre:{}, checklist_pre_fotos:{}, checklist_pre_comentarios:{} });
+        cargarDatosBasicosCamion(v.id);
       });
     });
 
     const backEl = document.querySelector('[data-back]');
     if (backEl) backEl.addEventListener('click', () => setState({ screen: backEl.dataset.back, saveError:null }));
 
-    // ESCRITURA SILENCIOSA (Evita parpadeos)
+    // ESCRITURA SILENCIOSA
     bindNumericInput('odo_inicio', v => { state.odo_inicio = v; }, true);
     bindNumericInput('odo_fin', v => { state.odo_fin = v; }, true);
     bindNumericInput('v_scooters', v => { state.viajeForm.scooters = v; }, false);
@@ -1150,7 +1082,7 @@
     const gComentario = document.getElementById('g_comentario');
     if (gComentario) gComentario.addEventListener('input', e => { state.gastoForm.comentario = e.target.value; });
 
-    // MAGIA DE UX: Ocultar el mensaje rojo automáticamente al empezar a corregir el número
+    // OCULTA ERRORES AL ESCRIBIR
     document.querySelectorAll('input, textarea').forEach(el => {
       el.addEventListener('input', () => {
         const errEl = document.querySelector('.save-error');
@@ -1158,32 +1090,32 @@
       });
     });
 
-    bindFileInput('odo_inicio_foto', file => setState({ odo_inicio_foto: file }));
-    bindFileInput('odo_fin_foto', file => setState({ odo_fin_foto: file }));
-    bindFileInput('g_foto', file => setStateField('gastoForm','foto', file));
+    // FOTOS ACUMULABLES
+    bindFileInput('odo_inicio_foto', files => setState({ odo_inicio_foto: [...(state.odo_inicio_foto || []), ...files] }));
+    bindFileInput('odo_fin_foto', files => setState({ odo_fin_foto: [...(state.odo_fin_foto || []), ...files] }));
+    bindFileInput('g_foto', files => setStateField('gastoForm','foto', [...(state.gastoForm.foto || []), ...files]));
 
     const btnQuin = document.getElementById('btn-quincenal');
     if (btnQuin) btnQuin.addEventListener('click', () => setState({ screen:'quincenal' }));
 
+    // QUINCENAL ACUMULABLE
     document.querySelectorAll('[id^="q_"]').forEach(el => {
       const cat = el.id.replace('q_','');
       el.addEventListener('change', e => {
-        setState({ quincenal: Object.assign({}, state.quincenal, { [cat]: e.target.files }) });
+        const nuevasFotos = Array.from(e.target.files || []);
+        const fotosAnteriores = state.quincenal[cat] || [];
+        setState({ quincenal: Object.assign({}, state.quincenal, { [cat]: [...fotosAnteriores, ...nuevasFotos] }) });
       });
     });
 
     const btnGQ = document.getElementById('btn-guardar-quincenal');
     if (btnGQ) btnGQ.addEventListener('click', guardarQuincenal);
 
-    // VALIDACIÓN AL HACER CLIC EN BOTONES
     const btnToChecklist = document.getElementById('btn-to-checklist');
     if (btnToChecklist) btnToChecklist.addEventListener('click', () => {
       if (!state.odo_inicio) { setState({ saveError: "Por favor ingresa el odómetro inicial." }); return; }
       const odoCheck = evalContinuidad(state.odo_inicio, state.ultimoOdometro);
-      if (odoCheck.status === 'error') {
-        setState({ saveError: "El odómetro no puede ser menor al del turno anterior." });
-        return;
-      }
+      if (odoCheck.status === 'error') { setState({ saveError: "El odómetro no puede ser menor al del turno anterior." }); return; }
       setState({ screen:'checklist-pre', saveError:null });
     });
 
@@ -1202,19 +1134,28 @@
       });
     });
 
+    // FOTOS CHECKLIST ACUMULABLES
     document.querySelectorAll('[id^="chk_foto_pre_"]').forEach(el => {
       const itemId = el.id.replace('chk_foto_pre_','');
       el.addEventListener('change', e => {
-        const file = e.target.files && e.target.files[0];
-        if (file) setState({ checklist_pre_fotos: Object.assign({}, state.checklist_pre_fotos, { [itemId]: file }) });
+        const files = Array.from(e.target.files || []);
+        const current = state.checklist_pre_fotos[itemId] || [];
+        if (files.length > 0) setState({ checklist_pre_fotos: Object.assign({}, state.checklist_pre_fotos, { [itemId]: [...current, ...files] }) });
       });
     });
     document.querySelectorAll('[id^="chk_foto_post_"]').forEach(el => {
       const itemId = el.id.replace('chk_foto_post_','');
       el.addEventListener('change', e => {
-        const file = e.target.files && e.target.files[0];
-        if (file) setState({ checklist_post_fotos: Object.assign({}, state.checklist_post_fotos, { [itemId]: file }) });
+        const files = Array.from(e.target.files || []);
+        const current = state.checklist_post_fotos[itemId] || [];
+        if (files.length > 0) setState({ checklist_post_fotos: Object.assign({}, state.checklist_post_fotos, { [itemId]: [...current, ...files] }) });
       });
+    });
+
+    // BOTON GALERIA PREVIA
+    const btnToggleGaleria = document.getElementById('btn-toggle-galeria');
+    if (btnToggleGaleria) btnToggleGaleria.addEventListener('click', () => {
+      setState({ mostrarGaleriaPrevia: !state.mostrarGaleriaPrevia });
     });
 
     const btnChecklistConfirm = document.getElementById('btn-checklist-confirm');
@@ -1222,17 +1163,11 @@
       const momento = state.screen === 'checklist-pre' ? 'pre' : 'post';
       const respuestas = momento === 'pre' ? state.checklist_pre : state.checklist_post;
       const comentarios = momento === 'pre' ? state.checklist_pre_comentarios : state.checklist_post_comentarios;
-      
       let itemsAProcesar = state.checklistItems;
-      if (momento === 'post') {
-        itemsAProcesar = itemsAProcesar.filter(i => !i.nombre.toLowerCase().includes('aceite') && !i.nombre.toLowerCase().includes('refrigerante') && !i.nombre.toLowerCase().includes('agua'));
-      }
+      if (momento === 'post') itemsAProcesar = itemsAProcesar.filter(i => !i.nombre.toLowerCase().includes('aceite') && !i.nombre.toLowerCase().includes('refrigerante') && !i.nombre.toLowerCase().includes('agua'));
       
       const todasRespondidas = itemsAProcesar.length > 0 && itemsAProcesar.every(it => respuestas[it.id] === 'ok' || (respuestas[it.id] === 'nc' && (comentarios[it.id] || '').trim().length > 0));
-      if (!todasRespondidas) {
-        setState({ saveError: "Debes completar todo el checklist (y detallar si hay algún NC)." });
-        return;
-      }
+      if (!todasRespondidas) { setState({ saveError: "Debes completar todo el checklist (y detallar si hay algún NC)." }); return; }
       if (momento === 'pre') confirmarChecklistPre();
       else confirmarChecklistPost();
     });
@@ -1242,7 +1177,6 @@
       screen:'viaje-form', saveError:null,
       viajeForm:{ scooters:'', baterias:'', odo_salida: odoSugeridoNuevoViaje(), odo_regreso:'', editId:null }
     }));
-    
     const btnGuardarViaje = document.getElementById('btn-guardar-viaje');
     if (btnGuardarViaje) btnGuardarViaje.addEventListener('click', () => {
       if (state.viajeForm.editId) actualizarViaje(); else iniciarViaje();
@@ -1252,7 +1186,6 @@
     if (btnFinalizarViajeActivo) btnFinalizarViajeActivo.addEventListener('click', () => setState({
       screen:'viaje-cerrar', saveError:null, viajeCierreForm:{ odo_regreso:'' }
     }));
-    
     const btnFinalizarViaje = document.getElementById('btn-finalizar-viaje');
     if (btnFinalizarViaje) btnFinalizarViaje.addEventListener('click', finalizarViaje);
 
@@ -1262,13 +1195,7 @@
         if (!v) return;
         setState({
           screen:'viaje-form', saveError:null,
-          viajeForm: {
-            scooters: String(v.scooters_cargados ?? ''),
-            baterias: String(v.baterias_cargadas ?? ''),
-            odo_salida: String(v.odometro_salida ?? ''),
-            odo_regreso: (v.odometro_regreso !== null && v.odometro_regreso !== undefined) ? String(v.odometro_regreso) : '',
-            editId: v.id,
-          }
+          viajeForm: { scooters: String(v.scooters_cargados ?? ''), baterias: String(v.baterias_cargadas ?? ''), odo_salida: String(v.odometro_salida ?? ''), odo_regreso: (v.odometro_regreso !== null && v.odometro_regreso !== undefined) ? String(v.odometro_regreso) : '', editId: v.id }
         });
       });
     });
@@ -1276,21 +1203,19 @@
     const btnNuevoGasto = document.getElementById('btn-nuevo-gasto');
     if (btnNuevoGasto) btnNuevoGasto.addEventListener('click', () => setState({
       screen:'gasto-form', saveError:null,
-      gastoForm:{ tipo:'combustible', monto:'', litros:'', odo:'', foto:null, comentario:'', editId:null, fotoExistenteUrl:null }
+      gastoForm:{ tipo:'combustible', monto:'', litros:'', odo:'', foto:[], comentario:'', editId:null, fotoExistenteUrl:null }
     }));
-    
     const btnRevisarGasto = document.getElementById('btn-revisar-gasto');
     if (btnRevisarGasto) btnRevisarGasto.addEventListener('click', () => {
       const f = state.gastoForm;
       const v = state.vehiculo;
       if (!f.monto) { setState({saveError: "Ingresa el monto."}); return; }
-      if (!f.foto && !f.fotoExistenteUrl) { setState({saveError: "Adjunta la foto de la boleta."}); return; }
+      if ((!f.foto || f.foto.length === 0) && !f.fotoExistenteUrl) { setState({saveError: "Adjunta fotos de la boleta."}); return; }
       if (f.tipo === 'combustible' && (!f.litros || !f.odo)) { setState({saveError: "Ingresa los litros y el odómetro al cargar."}); return; }
       if (f.tipo === 'combustible' && parseFloat(f.litros) > v.capacidad_estanque_l) { setState({saveError: `Excede la capacidad del estanque (${v.capacidad_estanque_l} L).`}); return; }
       if (f.tipo !== 'combustible' && (!f.comentario || f.comentario.trim() === '')) { setState({saveError: "Ingresa el detalle del gasto."}); return; }
       setState({ screen:'gasto-confirm', saveError:null });
     });
-    
     const btnConfirmarGasto = document.getElementById('btn-confirmar-gasto');
     if (btnConfirmarGasto) btnConfirmarGasto.addEventListener('click', () => {
       if (state.gastoForm.editId) actualizarGasto(); else guardarGasto();
@@ -1307,23 +1232,20 @@
             litros: (g.litros !== null && g.litros !== undefined) ? String(g.litros) : '',
             odo: (g.odometro_al_cargar !== null && g.odometro_al_cargar !== undefined) ? String(g.odometro_al_cargar) : '',
             comentario: g.comentario || '',
-            foto:null, editId: g.id, fotoExistenteUrl: g.boleta_foto_url || null,
+            foto: [], editId: g.id, fotoExistenteUrl: g.boleta_foto_url || null,
           }
         });
       });
     });
 
     const btnCerrar = document.getElementById('btn-cerrar-turno');
-    if (btnCerrar) btnCerrar.addEventListener('click', () => setState({ screen:'close-readings', odo_fin:'', odo_fin_foto:null, checklist_post:{}, checklist_post_fotos:{}, checklist_post_comentarios:{} }));
+    if (btnCerrar) btnCerrar.addEventListener('click', () => setState({ screen:'close-readings', odo_fin:'', odo_fin_foto:[], checklist_post:{}, checklist_post_fotos:{}, checklist_post_comentarios:{} }));
 
     const btnToChecklistPost = document.getElementById('btn-to-checklist-post');
     if (btnToChecklistPost) btnToChecklistPost.addEventListener('click', () => {
       const odoIni = parseFloat(state.odo_inicio);
       const odoFinNum = parseFloat(state.odo_fin);
-      if (isNaN(odoFinNum) || odoFinNum <= odoIni) {
-        setState({ saveError: "El odómetro final debe ser mayor al inicial." });
-        return;
-      }
+      if (isNaN(odoFinNum) || odoFinNum <= odoIni) { setState({ saveError: "El odómetro final debe ser mayor al inicial." }); return; }
       setState({ screen:'checklist-post', saveError:null });
     });
 
@@ -1334,7 +1256,8 @@
         viajes: [], gastos: [], odo_inicio: '', odo_fin: '', 
         checklist_pre: {}, checklist_pre_fotos: {}, checklist_pre_comentarios: {},
         checklist_post: {}, checklist_post_fotos: {}, checklist_post_comentarios: {},
-        quincenal: { puertas:[], parachoques:[], focos:[], espejos:[], costados:[] } 
+        quincenal: { puertas:[], parachoques:[], focos:[], espejos:[], costados:[] },
+        mostrarGaleriaPrevia: false, ultimoQuincenalDB: null
       });
     });
 
@@ -1378,5 +1301,3 @@
 
 })();
 </script>
-</body>
-</html>
