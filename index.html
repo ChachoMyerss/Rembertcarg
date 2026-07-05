@@ -364,7 +364,6 @@
       ${renderGaleriaModal()}
     `;
     
-    // Vinculamos los eventos SOLO después de inyectar el HTML
     bindEvents();
 
     if (activeId){
@@ -538,7 +537,7 @@
   }
 
   // =====================================================================
-  // CARGA DE DATOS REALES
+  // CARGA DE DATOS REALES Y CÁLCULO DE FECHAS
   // =====================================================================
   async function login(){
     setState({ loggingIn:true, loginError:null });
@@ -592,36 +591,28 @@
     } catch(e){ setState({ loading:false, loadError: e.message || String(e) }); }
   }
 
- async function cargarDatosBasicosCamion(vehiculoId){
+  async function cargarDatosBasicosCamion(vehiculoId){
     setState({ cargandoUltimoOdometro: true });
     try {
       const { data: oData } = await supabase.from('turnos').select('odometro_fin').eq('vehiculo_id', vehiculoId).in('estado', ['cerrado', 'con_discrepancia']).order('fecha_fin', { ascending:false }).limit(1).maybeSingle();
       
-      // SOLUCIÓN: Volvemos a ordenar por la FECHA (created_at) y no por el ID
+      // ORDENAMIENTO ESTRICTO POR FECHA (fecha_registro) PARA TRAER EL ÚLTIMO REAL
       const { data: qData } = await supabase.from('registro_fotografico_quincenal')
         .select('*')
         .eq('vehiculo_id', vehiculoId)
-        .order('created_at', { ascending: false }) 
+        .order('fecha_registro', { ascending: false })
         .limit(1)
         .maybeSingle();
       
       let dias = 999;
       if (qData) {
-        // Lee la fecha correctamente para calcular los 15 días
-        const dateStr = qData.created_at || qData.fecha_registro;
+        const dateStr = qData.fecha_registro || qData.created_at;
         if (dateStr) {
           const f = new Date(dateStr);
           const diff = Date.now() - f.getTime();
           dias = Math.floor(diff / (1000 * 60 * 60 * 24));
         }
       }
-      
-      setState({ ultimoOdometro: oData ? oData.odometro_fin : 0, ultimoQuincenalDB: qData || null, diasQuincenal: dias, cargandoUltimoOdometro:false });
-    } catch(e){
-      // Si llega a fallar porque la columna se llama diferente en tu BD, caerá aquí
-      setState({ ultimoOdometro: 0, ultimoQuincenalDB: null, diasQuincenal: 999, cargandoUltimoOdometro:false });
-    }
-  }
       
       setState({ ultimoOdometro: oData ? oData.odometro_fin : 0, ultimoQuincenalDB: qData || null, diasQuincenal: dias, cargandoUltimoOdometro:false });
     } catch(e){
@@ -638,7 +629,7 @@
   }
 
   // =====================================================================
-  // ACCIONES BASE DE DATOS
+  // ACCIONES CONTRA LA BASE DE DATOS
   // =====================================================================
   async function guardarChecklist(momento, turnoIdParaEnlazar){
     const respuestas = momento === 'pre' ? state.checklist_pre : state.checklist_post;
@@ -828,11 +819,10 @@
         fotos_focos: links.focos, fotos_espejos: links.espejos, fotos_costados: links.costados
       };
       
-      // Select single nos devuelve el registro exacto para actualizar la memoria RAM (con fecha creada)
       const { data, error } = await supabase.from('registro_fotografico_quincenal').insert(record).select().single();
       if (error) throw error;
       
-      // SINCRONIZACIÓN Y BLOQUEO INMEDIATO (Días = 0)
+      // AL GUARDAR, SE PONE EN 0 DIAS Y SE BLOQUEA DE INMEDIATO
       setState({ 
         saving: false, 
         screen: 'start-readings', 
@@ -951,7 +941,7 @@
     const v = state.vehiculo;
     const ultimo = state.ultimoOdometro;
     
-    // Lógica del Candado de 15 Días
+    // VALIDACION DE LOS 15 DÍAS
     const bloqueadoQuincenal = state.diasQuincenal < 15;
     const faltanQuincenal = 15 - state.diasQuincenal;
 
