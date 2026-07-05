@@ -592,18 +592,22 @@
     } catch(e){ setState({ loading:false, loadError: e.message || String(e) }); }
   }
 
-  async function cargarDatosBasicosCamion(vehiculoId){
+ async function cargarDatosBasicosCamion(vehiculoId){
     setState({ cargandoUltimoOdometro: true });
     try {
       const { data: oData } = await supabase.from('turnos').select('odometro_fin').eq('vehiculo_id', vehiculoId).in('estado', ['cerrado', 'con_discrepancia']).order('fecha_fin', { ascending:false }).limit(1).maybeSingle();
       
-      // Ordenamos por ID descendente para siempre obtener el más reciente sin importar la estructura exacta
+      // SOLUCIÓN: Volvemos a ordenar por la FECHA (created_at) y no por el ID
       const { data: qData } = await supabase.from('registro_fotografico_quincenal')
-        .select('*').eq('vehiculo_id', vehiculoId).order('id', { ascending:false }).limit(1).maybeSingle();
+        .select('*')
+        .eq('vehiculo_id', vehiculoId)
+        .order('created_at', { ascending: false }) 
+        .limit(1)
+        .maybeSingle();
       
       let dias = 999;
       if (qData) {
-        // Soporta tanto la columna estandar de supabase (created_at) como la tuya
+        // Lee la fecha correctamente para calcular los 15 días
         const dateStr = qData.created_at || qData.fecha_registro;
         if (dateStr) {
           const f = new Date(dateStr);
@@ -611,6 +615,13 @@
           dias = Math.floor(diff / (1000 * 60 * 60 * 24));
         }
       }
+      
+      setState({ ultimoOdometro: oData ? oData.odometro_fin : 0, ultimoQuincenalDB: qData || null, diasQuincenal: dias, cargandoUltimoOdometro:false });
+    } catch(e){
+      // Si llega a fallar porque la columna se llama diferente en tu BD, caerá aquí
+      setState({ ultimoOdometro: 0, ultimoQuincenalDB: null, diasQuincenal: 999, cargandoUltimoOdometro:false });
+    }
+  }
       
       setState({ ultimoOdometro: oData ? oData.odometro_fin : 0, ultimoQuincenalDB: qData || null, diasQuincenal: dias, cargandoUltimoOdometro:false });
     } catch(e){
