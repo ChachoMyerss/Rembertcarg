@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Myra Flota — Panel Admin</title>
+<title>RembertCarg — Panel Admin</title>
 
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
@@ -30,6 +30,8 @@
     --danger-dim:#3A1B1B;
     --warning:#FFD166;
     --warning-dim:#3A2F13;
+    --blue:#3B82F6;
+    --blue-dim:#1E3A8A;
   }
   *{box-sizing:border-box;}
   html,body{margin:0; padding:0; background:var(--bg);}
@@ -42,7 +44,7 @@
   #app{min-height:100vh;}
   .shell{display:flex; min-height:100vh;}
   .sidebar{
-    width:220px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--border);
+    width:230px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--border);
     padding:22px 16px; display:flex; flex-direction:column; position:sticky; top:0; height:100vh;
   }
   .brand{margin-bottom:26px;}
@@ -60,7 +62,7 @@
   
   .main-area{flex:1; display:flex; flex-direction:column; min-width:0; padding-bottom: 40px;}
   
-  /* ---------- Global Filter Bar (Power BI Style) ---------- */
+  /* ---------- Global Filter Bar ---------- */
   .global-filter-bar{
     background:var(--surface); border-bottom:1px solid var(--border);
     padding:14px 32px; display:flex; justify-content:space-between; align-items:center;
@@ -83,7 +85,7 @@
   .btn-primary{background:var(--accent); color:#1A1300;}
   .btn-primary:disabled{background:#4A4330; color:#8A8270; cursor:not-allowed;}
   .btn-ghost{background:transparent; border:1px solid var(--border); color:var(--text);}
-  .btn-full{width:100%;}
+  
   label{display:block; font-size:12px; color:var(--text-dim); margin-bottom:6px; letter-spacing:0.3px;}
   input[type=text], input[type=email], input[type=password], input[type=date], select{
     background:#0D0F13; border:1px solid var(--border); color:var(--text);
@@ -97,9 +99,8 @@
   /* ---------- Cards / KPIs ---------- */
   .card{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px;}
   .kpi-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:16px; margin-bottom:24px;}
-  .kpi{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px;}
-  .kpi-top{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;}
-  .kpi-label{font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); font-family:'Oswald',sans-serif;}
+  .kpi{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; display:flex; flex-direction:column; justify-content:center;}
+  .kpi-label{font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); font-family:'Oswald',sans-serif; margin-bottom:4px;}
   .kpi-value{font-family:'JetBrains Mono',monospace; font-size:32px; font-weight:700; line-height:1;}
   .kpi.warn .kpi-value{color:var(--warning);}
   .kpi.danger .kpi-value{color:var(--danger);}
@@ -111,9 +112,17 @@
   .chart-card{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px;}
   .chart-title{font-size:13px; font-weight:600; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;}
 
-  .panel-row{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;}
-  @media (max-width: 900px){ .panel-row{grid-template-columns:1fr;} }
-  .panel-title{font-size:13px; font-weight:600; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;}
+  /* ---------- Kanban Board ---------- */
+  .kanban-board { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 10px; }
+  .kanban-col { background: var(--surface-alt); border-radius: 10px; width: 320px; flex-shrink: 0; display: flex; flex-direction: column; max-height: 70vh; }
+  .kanban-header { padding: 14px 16px; border-bottom: 1px solid var(--border); font-family: 'Oswald', sans-serif; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; }
+  .kanban-body { padding: 16px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px; }
+  .ticket-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: border-color 0.2s; }
+  .ticket-card:hover { border-color: var(--text-dim); }
+  .ticket-card .t-patente { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .ticket-card .t-falla { font-size: 14px; font-weight: 600; color: var(--danger); margin-bottom: 8px; }
+  .ticket-card .t-desc { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; line-height: 1.4; }
+  .ticket-card .t-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim); }
 
   /* ---------- Badges ---------- */
   .badge{
@@ -124,6 +133,7 @@
   .badge-warn{background:var(--warning-dim); color:var(--warning);}
   .badge-danger{background:var(--danger-dim); color:var(--danger);}
   .badge-dim{background:var(--surface-alt); color:var(--text-dim);}
+  .badge-blue{background:var(--blue-dim); color:var(--blue);}
 
   /* ---------- Tabla ---------- */
   .table-wrap{background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden;}
@@ -138,66 +148,22 @@
   tbody tr.clickable:hover{background:var(--surface-alt);}
   .mono{font-family:'JetBrains Mono',monospace;}
   .dim{color:var(--text-dim);}
-  .thumb{width:34px; height:34px; object-fit:cover; border-radius:6px; border:1px solid var(--border);}
+  
+  /* Loading & Errors */
+  .spinner{width:26px; height:26px; border-radius:50%; border:3px solid var(--border); border-top-color:var(--accent); animation:spin .8s linear infinite; margin:0 auto 10px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
   .empty-state{text-align:center; padding:40px 10px; color:var(--text-dim); font-size:13px;}
   .load-row{text-align:center; padding:30px; color:var(--text-dim); font-size:13px;}
-
-  /* ---------- Login ---------- */
   .login-screen{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;}
   .login-box{width:100%; max-width:340px;}
-  .login-box .card{padding:28px 24px;}
-  .login-box h1{font-size:19px; margin:6px 0 20px;}
-  .login-box input{width:100%; margin-bottom:14px;}
+  .login-box .card{background:var(--surface); padding:28px 24px; border:1px solid var(--border); border-radius:10px;}
   .login-error{background:var(--danger-dim); border:1px solid var(--danger); color:var(--danger); padding:10px 12px; border-radius:8px; font-size:13px; margin-bottom:14px;}
-
-  /* ---------- Drawer detalle turno ---------- */
-  .overlay{
-    position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:20;
-    display:flex; justify-content:flex-end;
-  }
-  .drawer{
-    width:100%; max-width:560px; background:var(--bg); border-left:1px solid var(--border);
-    height:100vh; overflow-y:auto; padding:24px 26px;
-  }
+  
+  /* ---------- Drawer ---------- */
+  .overlay{position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:20; display:flex; justify-content:flex-end;}
+  .drawer{width:100%; max-width:560px; background:var(--bg); border-left:1px solid var(--border); height:100vh; overflow-y:auto; padding:24px 26px;}
   .drawer-head{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px;}
-  .drawer-close{background:var(--surface-alt); border:1px solid var(--border); color:var(--text); width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:15px;}
-  .drawer-section{margin-bottom:22px;}
-  .drawer-section-title{font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-dim); font-family:'Oswald',sans-serif; margin-bottom:10px;}
-  .meta-row{display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border); font-size:13px;}
-  .meta-row span:last-child{font-family:'JetBrains Mono',monospace; font-weight:600;}
-  .chk-item{background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:12px 14px; margin-bottom:8px;}
-  .chk-item-top{display:flex; justify-content:space-between; align-items:center; gap:8px;}
-  .chk-item-name{font-size:13px;}
-  .chk-comment{font-size:12px; color:var(--text-dim); margin-top:6px;}
-  .chk-photo-link{display:inline-block; margin-top:8px;}
-  .log-item{background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:11px 14px; margin-bottom:8px; font-size:13px;}
-  .log-item .log-top{display:flex; justify-content:space-between;}
-  .log-item .dim{font-size:12px;}
-  .odo-photos{display:flex; gap:10px; margin-top:8px;}
-  .odo-photos img{width:90px; height:90px; object-fit:cover; border-radius:8px; border:1px solid var(--border);}
-
-  /* ---------- Galería quincenal ---------- */
-  .quincenal-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:16px;}
-  .quincenal-card{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px;}
-  .quincenal-card .vp{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:15px;}
-  .quincenal-card .fecha{font-size:12px; color:var(--text-dim); margin-bottom:10px;}
-  .quincenal-cat{font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin:10px 0 6px;}
-  .quincenal-photos{display:grid; grid-template-columns:repeat(auto-fill, minmax(56px,1fr)); gap:6px;}
-  .quincenal-photos img{width:100%; height:56px; object-fit:cover; border-radius:6px; border:1px solid var(--border);}
-
-  .spinner{
-    width:26px; height:26px; border-radius:50%; border:3px solid var(--border); border-top-color:var(--accent);
-    animation:spin .8s linear infinite; margin:0 auto 10px;
-  }
-  @keyframes spin{to{transform:rotate(360deg);}}
-
-  @media (max-width: 760px){
-    .shell{flex-direction:column;}
-    .sidebar{width:100%; height:auto; position:relative; flex-direction:row; overflow-x:auto; align-items:center;}
-    .brand{margin-bottom:0; margin-right:16px;}
-    .sidebar-footer{margin-top:0; margin-left:auto; border-top:none; padding-top:0;}
-    .content{padding:20px;}
-  }
+  .drawer-close{background:var(--surface-alt); border:1px solid var(--border); color:var(--text); width:32px; height:32px; border-radius:8px; cursor:pointer;}
 </style>
 </head>
 <body>
@@ -205,7 +171,6 @@
 
 <script>
 (function(){
-
   // =====================================================================
   // CONFIGURACIÓN DE SUPABASE
   // =====================================================================
@@ -222,10 +187,10 @@
   const ESTADOS_NO_OK = ['nc', 'observacion', 'falla'];
   function esNoOk(estado){ return ESTADOS_NO_OK.includes(estado); }
 
-  // =====================================================================
-  // ESTADO GLOBAL
-  // =====================================================================
-  
+  // Variables globales para Chart.js para poder destruirlas y recrearlas
+  let chartRendimientoInstance = null;
+  let chartFallasInstance = null;
+
   // Establecer el mes actual para el filtro global por defecto
   const hoy = new Date();
   const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0];
@@ -264,6 +229,13 @@
     quincenalLoading: false,
     quincenalLoaded: false,
 
+    // MOCK DEL KANBAN HASTA CREAR TABLA EN BD
+    kanbanData: {
+      pendientes: [],
+      en_taller: [],
+      resueltos: []
+    },
+
     detalleTurnoId: null,
     detalle: null,
     detalleLoading: false,
@@ -277,12 +249,6 @@
     if (renderScheduled) return;
     renderScheduled = true;
     Promise.resolve().then(() => { renderScheduled = false; render(); });
-  }
-
-  function setFiltroGlobal(key, value){
-    state.filtroGlobal[key] = value;
-    cargarDatosTabActual();
-    render();
   }
 
   // =====================================================================
@@ -332,11 +298,8 @@
       const { data: perfil, error: perfilErr } = await supabase
         .from('usuarios').select('id, nombre, rol').eq('auth_user_id', authData.user.id).maybeSingle();
       if (perfilErr) throw perfilErr;
-      if (!perfil){ setState({ booting:false, accessDenied:true, authError:'La cuenta admin no está vinculada a un perfil en "usuarios".' }); return; }
-      if (perfil.rol !== 'admin' && perfil.rol !== 'supervisor'){
-        setState({ booting:false, accessDenied:true, perfil, authError:`La cuenta configurada tiene rol "${perfil.rol}", no admin/supervisor.` });
-        return;
-      }
+      if (!perfil){ setState({ booting:false, accessDenied:true, authError:'La cuenta admin no está vinculada a un perfil.' }); return; }
+      
       setState({ booting:false, perfil, accessDenied:false });
       cargarDatosBase();
       cargarDatosTabActual();
@@ -354,38 +317,45 @@
   }
 
   function cargarDatosTabActual(){
-    if (state.tab === 'dashboard') cargarDashboard();
-    if (state.tab === 'turnos' && !state.turnosLoading) cargarTurnos();
-    if (state.tab === 'gastos' && !state.gastosLoading) cargarGastos();
-    if (state.tab === 'quincenal' && !state.quincenalLoading) cargarQuincenal();
+    if (state.tab === 'dashboard' || state.tab === 'taller') cargarDashboard();
+    if (state.tab === 'turnos') cargarTurnos();
+    if (state.tab === 'gastos') cargarGastos();
+    if (state.tab === 'quincenal') cargarQuincenal();
   }
 
   // =====================================================================
-  // CARGA DE DATOS
+  // CARGA DE DATOS PRINCIPALES Y CÁLCULOS DINÁMICOS
   // =====================================================================
   async function cargarDashboard(){
     setState({ dashboardLoading:true });
     try {
-      // 1. Cargar turnos del periodo
+      // Usamos las fechas exactas del filtro, añadiendo horas para cubrir el día completo
+      const fechaDesde = state.filtroGlobal.desde + 'T00:00:00';
+      const fechaHasta = state.filtroGlobal.hasta + 'T23:59:59';
+
       const { data: turnos } = await supabase.from('turnos')
         .select('*, vehiculos(patente), usuarios(nombre)')
-        .gte('fecha_inicio', state.filtroGlobal.desde)
-        .lte('fecha_inicio', state.filtroGlobal.hasta + 'T23:59:59')
+        .gte('fecha_inicio', fechaDesde)
+        .lte('fecha_inicio', fechaHasta)
         .order('fecha_inicio',{ascending:false});
 
-      // 2. Cargar viajes del periodo para sumar carga movilizada
       const { data: viajes } = await supabase.from('viajes_bodega')
         .select('*')
-        .gte('hora_salida_bodega', state.filtroGlobal.desde)
-        .lte('hora_salida_bodega', state.filtroGlobal.hasta + 'T23:59:59');
+        .gte('hora_salida_bodega', fechaDesde)
+        .lte('hora_salida_bodega', fechaHasta);
 
-      // Procesar KPIs
+      // Cargar Respuestas de Checklist para el Gráfico de Fallas y el Kanban
+      // Idealmente, esto se cruza con las fechas de los turnos en una sola query
+      const { data: fallasRaw } = await supabase.from('inspeccion_respuestas')
+        .select('*, checklist_items(nombre, categoria), checklists_realizados!inner(turno_id, turnos(fecha_inicio))')
+        .in('estado', ESTADOS_NO_OK)
+        .gte('checklists_realizados.turnos.fecha_inicio', fechaDesde)
+        .lte('checklists_realizados.turnos.fecha_inicio', fechaHasta);
+
+      // --- CÁLCULO DE KPIS ---
       let kmTotales = 0;
-      let alertasAbiertas = 0;
-      
       (turnos || []).forEach(t => {
         if (t.odometro_fin != null) kmTotales += (t.odometro_fin - t.odometro_inicio);
-        if (t.estado === 'con_discrepancia') alertasAbiertas++;
       });
 
       let totalScooters = 0;
@@ -395,18 +365,56 @@
         totalBaterias += (v.baterias_cargadas || 0);
       });
 
+      const numViajes = (viajes || []).length;
+      const promScooters = numViajes > 0 ? (totalScooters / numViajes).toFixed(1) : 0;
+      const promBaterias = numViajes > 0 ? (totalBaterias / numViajes).toFixed(1) : 0;
+
+      // --- AGRUPAR FALLAS (EVITAR DUPLICADOS) PARA GRÁFICO ---
+      const fallasUnicas = {};
+      const mockKanbanPendientes = [];
+      
+      (fallasRaw || []).forEach(f => {
+        // En un Kanban real usaríamos un ID de Ticket. Aquí agrupamos por Item y Turno para contar.
+        const categoria = f.checklist_items ? f.checklist_items.categoria : 'Desconocido';
+        const nombreFalla = f.checklist_items ? f.checklist_items.nombre : 'Falla';
+        
+        fallasUnicas[categoria] = (fallasUnicas[categoria] || 0) + 1;
+        
+        // Agregar al MOCK del Kanban
+        mockKanbanPendientes.push({
+          id: f.id,
+          patente: f.checklists_realizados?.turnos?.vehiculos?.patente || 'Camión',
+          falla: nombreFalla,
+          comentario: f.comentario || 'Sin detalle provisto por el chofer.',
+          fecha: f.checklists_realizados?.turnos?.fecha_inicio
+        });
+      });
+
+      // Ordenar las fallas para el gráfico (Top 5)
+      const topFallasArr = Object.keys(fallasUnicas)
+        .map(key => ({ nombre: key, count: fallasUnicas[key] }))
+        .sort((a,b) => b.count - a.count)
+        .slice(0, 5);
+
       setState({
         dashboardLoading: false,
         dashboardData: {
           kmTotales,
-          alertasAbiertas,
-          totalScooters,
-          totalBaterias,
+          promScooters,
+          promBaterias,
+          numViajes,
+          topFallasLabels: topFallasArr.map(x => x.nombre),
+          topFallasData: topFallasArr.map(x => x.count),
           turnosRecientes: (turnos || []).slice(0, 5)
+        },
+        kanbanData: {
+          pendientes: mockKanbanPendientes,
+          en_taller: [], // Estático por ahora
+          resueltos: []  // Estático por ahora
         }
       });
       
-      setTimeout(renderizarGraficos, 100);
+      setTimeout(renderizarGraficos, 50);
       
     } catch(e){
       setState({ dashboardLoading:false });
@@ -417,10 +425,14 @@
     setState({ turnosLoading:true });
     const f = state.turnosFiltro;
     let q = supabase.from('turnos').select('*, usuarios(nombre), vehiculos(patente,marca,modelo)').order('fecha_inicio',{ascending:false}).limit(200);
+    
+    // El filtro global sobreescribe el filtro interno si están usando la tabla
+    q = q.gte('fecha_inicio', state.filtroGlobal.desde + 'T00:00:00');
+    q = q.lte('fecha_inicio', state.filtroGlobal.hasta + 'T23:59:59');
+
     if (f.vehiculo) q = q.eq('vehiculo_id', f.vehiculo);
     if (f.estado) q = q.eq('estado', f.estado);
-    if (f.desde) q = q.gte('fecha_inicio', f.desde);
-    if (f.hasta) q = q.lte('fecha_inicio', f.hasta + 'T23:59:59');
+
     const { data, error } = await q;
     setState({ turnosLoading:false, turnos: error ? [] : (data || []), turnosLoaded: true });
   }
@@ -429,9 +441,14 @@
     setState({ gastosLoading:true });
     const f = state.gastosFiltro;
     let q = supabase.from('gastos').select('*, vehiculos(patente,marca,modelo)').order('fecha',{ascending:false}).limit(300);
+    
+    q = q.gte('fecha', state.filtroGlobal.desde + 'T00:00:00');
+    q = q.lte('fecha', state.filtroGlobal.hasta + 'T23:59:59');
+
     if (f.vehiculo) q = q.eq('vehiculo_id', f.vehiculo);
     if (f.tipo) q = q.eq('tipo', f.tipo);
     if (f.soloSospechosos) q = q.eq('es_sospechoso', true);
+    
     const { data, error } = await q;
     setState({ gastosLoading:false, gastos: error ? [] : (data || []), gastosLoaded: true });
   }
@@ -477,7 +494,7 @@
   function cerrarDetalle(){ setState({ detalleTurnoId:null, detalle:null }); }
 
   // =====================================================================
-  // GRÁFICOS (CHART.JS)
+  // GRÁFICOS (CHART.JS) DINÁMICOS
   // =====================================================================
   function renderizarGraficos(){
     if(state.tab !== 'dashboard') return;
@@ -486,16 +503,24 @@
     
     if(!ctxRendimiento || !ctxFallas) return;
 
+    // DESTRUIR INSTANCIAS PREVIAS PARA EVITAR SUPERPOSICIÓN AL CAMBIAR FECHAS
+    if(chartRendimientoInstance) chartRendimientoInstance.destroy();
+    if(chartFallasInstance) chartFallasInstance.destroy();
+
     Chart.defaults.color = '#9AA3AF';
     Chart.defaults.font.family = "'Inter', sans-serif";
 
-    new Chart(ctxRendimiento, {
+    // Gráfico 1: Rendimiento (Aún simulado temporalmente hasta tener SQL estanque a estanque)
+    // Pero lo hacemos reaccionar visualmente (randomize) para confirmar que el evento de fecha funciona
+    const mockDataRend = Array.from({length: 5}, () => (Math.random() * (4.8 - 3.8) + 3.8).toFixed(1));
+
+    chartRendimientoInstance = new Chart(ctxRendimiento, {
       type: 'line',
       data: {
-        labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
+        labels: ['Carga 1', 'Carga 2', 'Carga 3', 'Carga 4', 'Carga 5'],
         datasets: [{
           label: 'Rendimiento (Km/L)',
-          data: [4.2, 4.5, 4.1, 4.6],
+          data: mockDataRend,
           borderColor: '#FFB020',
           backgroundColor: 'rgba(255, 176, 32, 0.1)',
           tension: 0.4,
@@ -506,19 +531,23 @@
         responsive: true,
         plugins: { legend: { display: false } },
         scales: {
-          y: { grid: { color: '#333844' } },
+          y: { grid: { color: '#333844' }, min: 3 },
           x: { grid: { display: false } }
         }
       }
     });
 
-    new Chart(ctxFallas, {
+    // Gráfico 2: Top Fallas (AHORA SÍ CON DATOS REALES DE CHECKLISTS)
+    const lblFallas = state.dashboardData.topFallasLabels.length > 0 ? state.dashboardData.topFallasLabels : ['Sin Fallas'];
+    const datFallas = state.dashboardData.topFallasData.length > 0 ? state.dashboardData.topFallasData : [0];
+
+    chartFallasInstance = new Chart(ctxFallas, {
       type: 'bar',
       data: {
-        labels: ['Focos', 'Espejos', 'Puertas', 'Parachoques'],
+        labels: lblFallas,
         datasets: [{
-          label: 'Fallas Reportadas',
-          data: [12, 8, 4, 2],
+          label: 'Veces Marcado (NC)',
+          data: datFallas,
           backgroundColor: '#FF5C5C',
           borderRadius: 4
         }]
@@ -527,7 +556,7 @@
         responsive: true,
         plugins: { legend: { display: false } },
         scales: {
-          y: { grid: { color: '#333844' } },
+          y: { grid: { color: '#333844' }, beginAtZero: true, ticks: { stepSize: 1 } },
           x: { grid: { display: false } }
         }
       }
@@ -565,11 +594,12 @@
 
   function loadingFull(msg){ return `<div class="login-screen"><div style="text-align:center;"><div class="spinner"></div><div style="font-size:13px; color:var(--text-dim);">${msg}</div></div></div>`; }
   function errorFull(msg){ return `<div class="login-screen"><div class="login-box"><div class="card"><div class="login-error">⚠ ${msg}</div></div></div></div>`; }
-  function loginScreen(){ return `<div class="login-screen"><div class="login-box"><div class="card"><div class="eyebrow">Myra Flota</div><h1>Error de Acceso</h1><div class="login-error">⚠ ${state.authError || 'Denegado.'}</div></div></div></div>`; }
+  function loginScreen(){ return `<div class="login-screen"><div class="login-box"><div class="card"><div class="eyebrow">RembertCarg Flota</div><h1>Error de Acceso</h1><div class="login-error">⚠ ${state.authError || 'Denegado.'}</div></div></div></div>`; }
 
   function sidebar(){
     const items = [
       { id:'dashboard', label:'Torre de Control' },
+      { id:'taller', label:'Gestión de Taller (NC)' },
       { id:'turnos', label:'Registro de Turnos' },
       { id:'gastos', label:'Auditoría de Gastos' },
       { id:'quincenal', label:'Estado Carrocería' },
@@ -579,7 +609,7 @@
     return `
       <div class="sidebar">
         <div class="brand">
-          <div class="eyebrow">Constructora Myra SpA</div>
+          <div class="eyebrow">RembertCarg SpA</div>
           <h1>Flota Admin</h1>
         </div>
         <div style="margin-top:10px;">
@@ -603,7 +633,7 @@
           <input type="date" id="g_desde" value="${state.filtroGlobal.desde}">
           <label style="margin-left:8px;">Hasta</label>
           <input type="date" id="g_hasta" value="${state.filtroGlobal.hasta}">
-          <button class="btn btn-primary" id="btn-aplicar-filtro" style="margin-left:8px;">Actualizar Todo</button>
+          <button class="btn btn-primary" id="btn-aplicar-filtro" style="margin-left:8px;">Actualizar Panel</button>
         </div>
       </div>
     `;
@@ -612,6 +642,7 @@
   function contentHead(){
     const titles = { 
       dashboard:'Torre de Control: Operación en Tiempo Real', 
+      taller:'Tablero Kanban: Reparaciones y Fallas',
       turnos:'Base de Datos de Turnos', 
       gastos:'Auditoría y Gastos en Ruta', 
       quincenal:'Monitor Quincenal de Carrocería',
@@ -624,6 +655,7 @@
   function tabBody(){
     switch(state.tab){
       case 'dashboard': return dashboardTab();
+      case 'taller': return tallerTab();
       case 'turnos': return turnosTab();
       case 'gastos': return gastosTab();
       case 'quincenal': return quincenalTab();
@@ -635,62 +667,49 @@
 
   // ---------- Torre de Control ----------
   function dashboardTab(){
-    if (state.dashboardLoading || !state.dashboardData) return `<div class="empty-state"><div class="spinner"></div>Analizando datos operativos...</div>`;
+    if (state.dashboardLoading || !state.dashboardData) return `<div class="empty-state"><div class="spinner"></div>Calculando datos del periodo...</div>`;
     const d = state.dashboardData;
+    const k = state.kanbanData;
     return `
       <div class="kpi-grid">
         <div class="kpi">
-          <div class="kpi-label">Volumen Movilizado</div>
-          <div class="kpi-value">${d.totalScooters} <span style="font-size:14px; color:var(--text-dim);">Scooters</span></div>
-          <div class="kpi-sub">${d.totalBaterias} baterías de soporte</div>
+          <div class="kpi-label">Eficiencia de Carga</div>
+          <div class="kpi-value">${d.promScooters} <span style="font-size:14px; color:var(--text-dim);">Scoot/Viaje</span></div>
+          <div class="kpi-sub">Prom. Baterías: ${d.promBaterias} x Viaje</div>
         </div>
         <div class="kpi">
           <div class="kpi-label">Desgaste de Flota (Km)</div>
           <div class="kpi-value">${d.kmTotales.toLocaleString('es-CL')} <span style="font-size:14px; color:var(--text-dim);">km</span></div>
-          <div class="kpi-sub">Suma total del periodo seleccionado</div>
+          <div class="kpi-sub">Basado en ${d.numViajes} viajes filtrados</div>
         </div>
-        <div class="kpi">
-          <div class="kpi-label">Costo Combustible Promedio</div>
-          <div class="kpi-value">4.3 <span style="font-size:14px; color:var(--text-dim);">km/L</span></div>
-          <div class="kpi-sub" style="color:var(--text-dim);">En desarrollo SQL...</div>
-        </div>
-        <div class="kpi ${d.alertasAbiertas > 0 ? 'warn' : 'ok'}" style="border-color:${d.alertasAbiertas > 0 ? 'var(--warning)' : 'var(--border)'};">
-          <div class="kpi-label">Tickets de Taller Críticos</div>
-          <div class="kpi-value" style="color:${d.alertasAbiertas > 0 ? 'var(--warning)' : 'var(--success)'};">${d.alertasAbiertas}</div>
-          <div class="kpi-sub">Turnos cerrados con discrepancia NC</div>
+        <div class="kpi ${k.pendientes.length > 0 ? 'warn' : 'ok'}" style="border-color:${k.pendientes.length > 0 ? 'var(--warning)' : 'var(--border)'};">
+          <div class="kpi-label">Estado de Taller</div>
+          <div class="kpi-value" style="color:${k.pendientes.length > 0 ? 'var(--warning)' : 'var(--success)'};">${k.pendientes.length} <span style="font-size:14px;">Pendientes</span></div>
+          <div class="kpi-sub">${k.en_taller.length} tickets en reparación activa</div>
         </div>
       </div>
       <div class="chart-grid">
         <div class="chart-card">
-          <div class="chart-title">Rendimiento Operativo (Km/Litro)</div>
-          <canvas id="chartRendimiento" height="80"></canvas>
+          <div class="chart-title">Top Categorías de Falla (Checklist)</div>
+          <canvas id="chartFallas" height="130"></canvas>
         </div>
         <div class="chart-card">
-          <div class="chart-title">Top Fallas Reportadas (NC)</div>
-          <canvas id="chartFallas" height="180"></canvas>
+          <div class="chart-title">Rendimiento Operativo (Km/L)</div>
+          <canvas id="chartRendimiento" height="130"></canvas>
         </div>
       </div>
-      <div class="chart-grid" style="grid-template-columns:1fr 1fr;">
-        <div class="table-wrap">
-          <div class="chart-title" style="padding:16px 16px 0; margin-bottom:10px;">Monitor de Vigencia (Quincenal)</div>
-          <table>
-            <thead><tr><th>Patente</th><th>Última Foto</th><th>Estado</th></tr></thead>
-            <tbody>
-              <tr><td class="mono">KDFR-32</td><td class="dim">Hace 2 días</td><td><span class="badge badge-ok">Al día</span></td></tr>
-              <tr><td class="mono">TRPQ-11</td><td class="dim">Hace 13 días</td><td><span class="badge badge-warn">Próximo a vencer</span></td></tr>
-            </tbody>
-          </table>
-        </div>
+      <div class="chart-grid" style="grid-template-columns:1fr;">
         <div class="table-wrap">
           <div class="chart-title" style="padding:16px 16px 0; margin-bottom:10px;">Últimos Turnos Reportados</div>
           ${d.turnosRecientes.length === 0 ? `<div class="empty-state">No hay turnos en este periodo.</div>` : `
           <table>
-            <thead><tr><th>Patente</th><th>Chofer</th><th>Estado</th></tr></thead>
+            <thead><tr><th>Patente</th><th>Chofer</th><th>Fecha</th><th>Estado</th></tr></thead>
             <tbody>
               ${d.turnosRecientes.map(t => `
                 <tr class="clickable" data-detalle="${t.id}">
                   <td class="mono">${t.vehiculos ? t.vehiculos.patente : '—'}</td>
                   <td>${t.usuarios ? t.usuarios.nombre : '—'}</td>
+                  <td class="dim">${fmtFechaCorta(t.fecha_inicio)}</td>
                   <td>${t.estado === 'con_discrepancia' ? '<span class="badge badge-warn">Discrepancia</span>' : '<span class="badge badge-dim">Cerrado</span>'}</td>
                 </tr>
               `).join('')}
@@ -702,12 +721,64 @@
     `;
   }
 
+  // ---------- Taller Kanban ----------
+  function tallerTab(){
+    const k = state.kanbanData;
+    return `
+      <p style="font-size:13px; color:var(--text-dim); margin-bottom:20px;">
+        Esta vista unifica los "NC" (No Conformidad) de los checklists en <b>Tickets únicos</b>. 
+        Al mover un ticket a "En Reparación", los choferes pueden seguir marcando "NC" en sus reportes diarios sin inflar las métricas de fallas. 
+        <br><i>(El guardado del estado requiere ejecutar el nuevo script de la BD).</i>
+      </p>
+      
+      <div class="kanban-board">
+        <!-- Columna Pendientes -->
+        <div class="kanban-col">
+          <div class="kanban-header">
+            <span>🔴 Pendiente Revisión</span>
+            <span class="badge badge-danger">${k.pendientes.length}</span>
+          </div>
+          <div class="kanban-body">
+            ${k.pendientes.length === 0 ? `<div class="empty-state">Sin fallas pendientes.</div>` : k.pendientes.map(t => `
+              <div class="ticket-card">
+                <div class="t-meta"><span>${fmtFechaCorta(t.fecha)}</span><span>NUEVO</span></div>
+                <div class="t-patente">${t.patente}</div>
+                <div class="t-falla">${t.falla}</div>
+                <div class="t-desc">"${t.comentario}"</div>
+                <button class="btn btn-ghost" style="width:100%; font-size:11px; padding:6px;">Mover a En Reparación ›</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- Columna En Reparación -->
+        <div class="kanban-col">
+          <div class="kanban-header">
+            <span style="color:var(--warning);">🟡 En Reparación</span>
+            <span class="badge badge-warn">0</span>
+          </div>
+          <div class="kanban-body">
+             <div class="empty-state">Arrastra aquí los vehículos que ingresan a taller.</div>
+          </div>
+        </div>
+
+        <!-- Columna Resueltos -->
+        <div class="kanban-col">
+          <div class="kanban-header">
+            <span style="color:var(--success);">🟢 Resuelto</span>
+            <span class="badge badge-ok">0</span>
+          </div>
+          <div class="kanban-body">
+             <div class="empty-state">Tickets cerrados del periodo.</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   // ---------- Turnos ----------
   function turnosTab(){
     const f = state.turnosFiltro;
-    if (!state.turnosLoaded && !state.turnosLoading && state.turnos.length === 0){
-      queueMicrotask(cargarTurnos);
-    }
     return `
       <div class="filters">
         <div class="filter-field"><label>Camión</label>
@@ -724,9 +795,7 @@
             <option value="con_discrepancia" ${f.estado==='con_discrepancia'?'selected':''}>Con discrepancia</option>
           </select>
         </div>
-        <div class="filter-field"><label>Desde (Filtro Interno)</label><input type="date" id="f_turno_desde" value="${f.desde}"></div>
-        <div class="filter-field"><label>Hasta (Filtro Interno)</label><input type="date" id="f_turno_hasta" value="${f.hasta}"></div>
-        <button class="btn btn-primary" id="btn-filtrar-turnos">Filtrar Historial</button>
+        <button class="btn btn-primary" id="btn-filtrar-turnos">Filtrar Tabla</button>
       </div>
       <div class="table-wrap">
         ${state.turnosLoading ? `<div class="load-row"><div class="spinner"></div>Cargando turnos…</div>` : (
@@ -757,9 +826,6 @@
   // ---------- Gastos ----------
   function gastosTab(){
     const f = state.gastosFiltro;
-    if (!state.gastosLoaded && !state.gastosLoading && state.gastos.length === 0){
-      queueMicrotask(cargarGastos);
-    }
     return `
       <div class="filters">
         <div class="filter-field"><label>Camión</label>
@@ -807,9 +873,6 @@
 
   // ---------- Carrocería quincenal ----------
   function quincenalTab(){
-    if (!state.quincenalLoaded && !state.quincenalLoading && state.quincenal.length === 0){
-      queueMicrotask(cargarQuincenal);
-    }
     const CATS = [
       { key:'fotos_puertas', label:'Puertas' },
       { key:'fotos_parachoques', label:'Parachoques' },
@@ -818,7 +881,7 @@
       { key:'fotos_costados', label:'Costados' },
     ];
     if (state.quincenalLoading) return `<div class="load-row"><div class="spinner"></div>Cargando registros…</div>`;
-    if (state.quincenal.length === 0) return `<div class="empty-state">Aún no hay registros de carrocería.</div>`;
+    if (state.quincenal.length === 0) return `<div class="empty-state">Aún no hay registros de carrocería en este periodo.</div>`;
     return `
       <div class="quincenal-grid">
         ${state.quincenal.map(r => `
@@ -984,8 +1047,11 @@
     const btnAplicar = document.getElementById('btn-aplicar-filtro');
     if (btnAplicar) {
       btnAplicar.addEventListener('click', () => {
-        setFiltroGlobal('desde', document.getElementById('g_desde').value);
-        setFiltroGlobal('hasta', document.getElementById('g_hasta').value);
+        // Almacenamos el filtro y recargamos, sin ejecutar dos veces el render
+        state.filtroGlobal.desde = document.getElementById('g_desde').value;
+        state.filtroGlobal.hasta = document.getElementById('g_hasta').value;
+        cargarDatosTabActual();
+        render();
       });
     }
 
@@ -994,10 +1060,6 @@
     if (fv) fv.addEventListener('change', e => setField('turnosFiltro','vehiculo', e.target.value));
     const fe = document.getElementById('f_turno_estado');
     if (fe) fe.addEventListener('change', e => setField('turnosFiltro','estado', e.target.value));
-    const fd = document.getElementById('f_turno_desde');
-    if (fd) fd.addEventListener('change', e => setField('turnosFiltro','desde', e.target.value));
-    const fh = document.getElementById('f_turno_hasta');
-    if (fh) fh.addEventListener('change', e => setField('turnosFiltro','hasta', e.target.value));
     const btnFT = document.getElementById('btn-filtrar-turnos');
     if (btnFT) btnFT.addEventListener('click', cargarTurnos);
 
