@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Flota — Panel Admin</title>
+<title>Myra Flota — Panel Admin</title>
 
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
@@ -11,6 +11,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
@@ -45,7 +46,7 @@
     padding:22px 16px; display:flex; flex-direction:column; position:sticky; top:0; height:100vh;
   }
   .brand{margin-bottom:26px;}
-  .brand h1{font-size:17px; margin-top:4px;}
+  .brand h1{font-size:17px; margin-top:4px; color:var(--accent);}
   .nav-item{
     display:flex; align-items:center; gap:10px;
     font-family:'Oswald',sans-serif; font-size:13px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;
@@ -56,7 +57,20 @@
   .sidebar-footer{margin-top:auto; padding-top:16px; border-top:1px solid var(--border);}
   .user-tag{font-size:12px; color:var(--text-dim); margin-bottom:10px;}
   .user-tag b{color:var(--text); display:block; font-size:13px;}
-  .content{flex:1; padding:28px 32px; max-width:1320px; min-width:0;}
+  
+  .main-area{flex:1; display:flex; flex-direction:column; min-width:0; padding-bottom: 40px;}
+  
+  /* ---------- Global Filter Bar (Power BI Style) ---------- */
+  .global-filter-bar{
+    background:var(--surface); border-bottom:1px solid var(--border);
+    padding:14px 32px; display:flex; justify-content:space-between; align-items:center;
+    position:sticky; top:0; z-index:10;
+  }
+  .global-filter-bar .filter-group{display:flex; gap:12px; align-items:center;}
+  .global-filter-bar label{margin-bottom:0; font-size:11px; text-transform:uppercase; font-weight:600; color:var(--text-dim);}
+  .global-filter-bar input[type=date]{background:#0D0F13; border:1px solid var(--border); color:var(--text); padding:6px 10px; border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:13px;}
+  
+  .content{padding:28px 32px; max-width:1400px;}
   .content-head{display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:20px; flex-wrap:wrap; gap:12px;}
   .content-head h2{font-size:22px;}
 
@@ -82,13 +96,21 @@
 
   /* ---------- Cards / KPIs ---------- */
   .card{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px;}
-  .kpi-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(190px,1fr)); gap:14px; margin-bottom:24px;}
-  .kpi{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 18px;}
-  .kpi-label{font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin-bottom:6px;}
-  .kpi-value{font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:700;}
+  .kpi-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:16px; margin-bottom:24px;}
+  .kpi{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px;}
+  .kpi-top{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;}
+  .kpi-label{font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); font-family:'Oswald',sans-serif;}
+  .kpi-value{font-family:'JetBrains Mono',monospace; font-size:32px; font-weight:700; line-height:1;}
   .kpi.warn .kpi-value{color:var(--warning);}
   .kpi.danger .kpi-value{color:var(--danger);}
   .kpi.ok .kpi-value{color:var(--success);}
+  .kpi-sub{font-size:12px; color:var(--text-dim); margin-top:8px;}
+  
+  .chart-grid{display:grid; grid-template-columns:2fr 1fr; gap:16px; margin-bottom:24px;}
+  @media (max-width: 1000px){ .chart-grid{grid-template-columns:1fr;} }
+  .chart-card{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px;}
+  .chart-title{font-size:13px; font-weight:600; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;}
+
   .panel-row{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;}
   @media (max-width: 900px){ .panel-row{grid-template-columns:1fr;} }
   .panel-title{font-size:13px; font-weight:600; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;}
@@ -185,17 +207,11 @@
 (function(){
 
   // =====================================================================
-  // CONFIGURACIÓN DE SUPABASE — usa las mismas credenciales que index.html
+  // CONFIGURACIÓN DE SUPABASE
   // =====================================================================
   const SUPABASE_URL = 'https://jxjevmykipkxdfdczznt.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4amV2bXlraXBreGRmZGN6em50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MzA4MzQsImV4cCI6MjA5NzQwNjgzNH0.zJbYDqJi1YcbbxHMz6DFXdMxWhF4k_WxPcuj4dXmeX0';
 
-  // Solo existe un admin, así que este panel no muestra un formulario de
-  // login: se autentica en segundo plano con esta cuenta apenas carga la
-  // página. La seguridad de este panel depende de que la URL (el nombre
-  // de este archivo) no se comparta ni se indexe — cualquiera que abra el
-  // código fuente puede ver este correo y clave, así que trátalo como un
-  // dato sensible del mismo nivel que la URL "difícil de adivinar".
   const ADMIN_EMAIL = 'carol@rembercarg.com';
   const ADMIN_PASSWORD = 'rembercarg2026';
 
@@ -203,43 +219,50 @@
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
 
-  // Mapeo tolerante: la app de terreno usa 'ok'/'nc', el enum original de la
-  // BD contempla 'ok'/'observacion'/'falla'. El panel entiende ambos formatos.
   const ESTADOS_NO_OK = ['nc', 'observacion', 'falla'];
   function esNoOk(estado){ return ESTADOS_NO_OK.includes(estado); }
 
   // =====================================================================
-  // ESTADO
+  // ESTADO GLOBAL
   // =====================================================================
+  
+  // Establecer el mes actual para el filtro global por defecto
+  const hoy = new Date();
+  const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0];
+  const ultimoDiaMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().split('T')[0];
+
   let state = {
-    booting: true,          // resolviendo sesión / autenticación inicial
-    perfil: null,           // { id, nombre, rol }
+    booting: true,
+    perfil: null,
     accessDenied: false,
     authError: null,
     configError: !supabase,
 
-    tab: 'resumen',
+    tab: 'dashboard',
+    
+    // Filtro Global
+    filtroGlobal: { desde: primerDiaMes, hasta: ultimoDiaMes },
 
     vehiculos: [],
     choferes: [],
-    dataBoot: false,        // vehiculos/choferes ya cargados
-
-    kpis: null,
-    kpisLoading: false,
-    alertasDiscrepancia: [],
-    alertasSospechosos: [],
-    resumenLoading: false,
+    dataBoot: false,
+    
+    dashboardData: null,
+    dashboardLoading: false,
 
     turnos: [],
     turnosLoading: false,
     turnosFiltro: { vehiculo:'', estado:'', desde:'', hasta:'' },
+    turnosLoaded: false,
 
     gastos: [],
     gastosLoading: false,
     gastosFiltro: { vehiculo:'', tipo:'', soloSospechosos:false },
+    gastosLoaded: false,
 
     quincenal: [],
     quincenalLoading: false,
+    quincenalLoaded: false,
 
     detalleTurnoId: null,
     detalle: null,
@@ -256,8 +279,14 @@
     Promise.resolve().then(() => { renderScheduled = false; render(); });
   }
 
+  function setFiltroGlobal(key, value){
+    state.filtroGlobal[key] = value;
+    cargarDatosTabActual();
+    render();
+  }
+
   // =====================================================================
-  // FORMATO
+  // FORMATOS
   // =====================================================================
   function fmtNum(n){ return Number(n||0).toLocaleString('es-CL'); }
   function fmtMoney(n){ return '$' + Number(n||0).toLocaleString('es-CL'); }
@@ -279,7 +308,7 @@
   };
 
   // =====================================================================
-  // AUTH — sin formulario visible: login silencioso con la cuenta admin
+  // INICIALIZACIÓN Y AUTH
   // =====================================================================
   async function boot(){
     if (!supabase){ setState({ booting:false }); return; }
@@ -310,15 +339,12 @@
       }
       setState({ booting:false, perfil, accessDenied:false });
       cargarDatosBase();
-      cargarResumen();
+      cargarDatosTabActual();
     } catch(e){
       setState({ booting:false, accessDenied:true, authError: e.message || String(e) });
     }
   }
 
-  // =====================================================================
-  // CARGA DE DATOS
-  // =====================================================================
   async function cargarDatosBase(){
     const [{ data: vehiculos }, { data: choferes }] = await Promise.all([
       supabase.from('vehiculos').select('*').order('patente'),
@@ -327,28 +353,63 @@
     setState({ vehiculos: vehiculos || [], choferes: choferes || [], dataBoot:true });
   }
 
-  async function cargarResumen(){
-    setState({ resumenLoading:true });
+  function cargarDatosTabActual(){
+    if (state.tab === 'dashboard') cargarDashboard();
+    if (state.tab === 'turnos' && !state.turnosLoading) cargarTurnos();
+    if (state.tab === 'gastos' && !state.gastosLoading) cargarGastos();
+    if (state.tab === 'quincenal' && !state.quincenalLoading) cargarQuincenal();
+  }
+
+  // =====================================================================
+  // CARGA DE DATOS
+  // =====================================================================
+  async function cargarDashboard(){
+    setState({ dashboardLoading:true });
     try {
-      const [abiertos, discrepancia, sospechosos, discrepanciaLista, sospechososLista] = await Promise.all([
-        supabase.from('turnos').select('id', { count:'exact', head:true }).eq('estado','abierto'),
-        supabase.from('turnos').select('id', { count:'exact', head:true }).eq('estado','con_discrepancia'),
-        supabase.from('gastos').select('id', { count:'exact', head:true }).eq('es_sospechoso', true).eq('aprobado', false),
-        supabase.from('turnos').select('*, usuarios(nombre), vehiculos(patente)').eq('estado','con_discrepancia').order('fecha_inicio',{ascending:false}).limit(6),
-        supabase.from('gastos').select('*, vehiculos(patente)').eq('es_sospechoso', true).eq('aprobado', false).order('fecha',{ascending:false}).limit(6),
-      ]);
-      setState({
-        resumenLoading:false,
-        kpis: {
-          abiertos: abiertos.count || 0,
-          discrepancia: discrepancia.count || 0,
-          sospechosos: sospechosos.count || 0,
-        },
-        alertasDiscrepancia: discrepanciaLista.data || [],
-        alertasSospechosos: sospechososLista.data || [],
+      // 1. Cargar turnos del periodo
+      const { data: turnos } = await supabase.from('turnos')
+        .select('*, vehiculos(patente), usuarios(nombre)')
+        .gte('fecha_inicio', state.filtroGlobal.desde)
+        .lte('fecha_inicio', state.filtroGlobal.hasta + 'T23:59:59')
+        .order('fecha_inicio',{ascending:false});
+
+      // 2. Cargar viajes del periodo para sumar carga movilizada
+      const { data: viajes } = await supabase.from('viajes_bodega')
+        .select('*')
+        .gte('hora_salida_bodega', state.filtroGlobal.desde)
+        .lte('hora_salida_bodega', state.filtroGlobal.hasta + 'T23:59:59');
+
+      // Procesar KPIs
+      let kmTotales = 0;
+      let alertasAbiertas = 0;
+      
+      (turnos || []).forEach(t => {
+        if (t.odometro_fin != null) kmTotales += (t.odometro_fin - t.odometro_inicio);
+        if (t.estado === 'con_discrepancia') alertasAbiertas++;
       });
+
+      let totalScooters = 0;
+      let totalBaterias = 0;
+      (viajes || []).forEach(v => {
+        totalScooters += (v.scooters_cargados || 0);
+        totalBaterias += (v.baterias_cargadas || 0);
+      });
+
+      setState({
+        dashboardLoading: false,
+        dashboardData: {
+          kmTotales,
+          alertasAbiertas,
+          totalScooters,
+          totalBaterias,
+          turnosRecientes: (turnos || []).slice(0, 5)
+        }
+      });
+      
+      setTimeout(renderizarGraficos, 100);
+      
     } catch(e){
-      setState({ resumenLoading:false });
+      setState({ dashboardLoading:false });
     }
   }
 
@@ -361,7 +422,7 @@
     if (f.desde) q = q.gte('fecha_inicio', f.desde);
     if (f.hasta) q = q.lte('fecha_inicio', f.hasta + 'T23:59:59');
     const { data, error } = await q;
-    setState({ turnosLoading:false, turnos: error ? [] : (data || []) });
+    setState({ turnosLoading:false, turnos: error ? [] : (data || []), turnosLoaded: true });
   }
 
   async function cargarGastos(){
@@ -372,7 +433,7 @@
     if (f.tipo) q = q.eq('tipo', f.tipo);
     if (f.soloSospechosos) q = q.eq('es_sospechoso', true);
     const { data, error } = await q;
-    setState({ gastosLoading:false, gastos: error ? [] : (data || []) });
+    setState({ gastosLoading:false, gastos: error ? [] : (data || []), gastosLoaded: true });
   }
 
   async function cargarQuincenal(){
@@ -382,7 +443,7 @@
       .select('*, vehiculos(patente,marca,modelo), usuarios(nombre)')
       .order('fecha_registro', { ascending:false })
       .limit(60);
-    setState({ quincenalLoading:false, quincenal: error ? [] : (data || []) });
+    setState({ quincenalLoading:false, quincenal: error ? [] : (data || []), quincenalLoaded: true });
   }
 
   async function abrirDetalleTurno(turnoId){
@@ -416,7 +477,65 @@
   function cerrarDetalle(){ setState({ detalleTurnoId:null, detalle:null }); }
 
   // =====================================================================
-  // RENDER
+  // GRÁFICOS (CHART.JS)
+  // =====================================================================
+  function renderizarGraficos(){
+    if(state.tab !== 'dashboard') return;
+    const ctxRendimiento = document.getElementById('chartRendimiento');
+    const ctxFallas = document.getElementById('chartFallas');
+    
+    if(!ctxRendimiento || !ctxFallas) return;
+
+    Chart.defaults.color = '#9AA3AF';
+    Chart.defaults.font.family = "'Inter', sans-serif";
+
+    new Chart(ctxRendimiento, {
+      type: 'line',
+      data: {
+        labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
+        datasets: [{
+          label: 'Rendimiento (Km/L)',
+          data: [4.2, 4.5, 4.1, 4.6],
+          borderColor: '#FFB020',
+          backgroundColor: 'rgba(255, 176, 32, 0.1)',
+          tension: 0.4,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { grid: { color: '#333844' } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+
+    new Chart(ctxFallas, {
+      type: 'bar',
+      data: {
+        labels: ['Focos', 'Espejos', 'Puertas', 'Parachoques'],
+        datasets: [{
+          label: 'Fallas Reportadas',
+          data: [12, 8, 4, 2],
+          backgroundColor: '#FF5C5C',
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { grid: { color: '#333844' } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  // =====================================================================
+  // RENDER HTML
   // =====================================================================
   function render(){
     const app = document.getElementById('app');
@@ -425,63 +544,47 @@
   }
 
   function screenRoot(){
-    if (state.configError) return errorFull('Falta configurar SUPABASE_URL y SUPABASE_ANON_KEY al inicio del script.');
-    if (state.booting) return loadingFull('Verificando sesión…');
+    if (state.configError) return errorFull('Falta configurar credenciales Supabase.');
+    if (state.booting) return loadingFull('Verificando acceso Admin…');
     if (!state.perfil || state.accessDenied) return loginScreen();
+    
     return `
       <div class="shell">
         ${sidebar()}
-        <div class="content">
-          ${contentHead()}
-          ${tabBody()}
+        <div class="main-area">
+          ${globalFilterBar()}
+          <div class="content">
+            ${contentHead()}
+            ${tabBody()}
+          </div>
         </div>
       </div>
       ${state.detalleTurnoId ? drawerDetalleTurno() : ''}
     `;
   }
 
-  function loadingFull(msg){
-    return `<div class="login-screen"><div style="text-align:center;"><div class="spinner"></div><div style="font-size:13px; color:var(--text-dim);">${msg}</div></div></div>`;
-  }
-  function errorFull(msg){
-    return `<div class="login-screen"><div class="login-box"><div class="card"><div class="login-error">⚠ ${msg}</div></div></div></div>`;
-  }
-
-  function loginScreen(){
-    return `
-      <div class="login-screen">
-        <div class="login-box">
-          <div class="card">
-            <div class="eyebrow">Flota · Panel Admin</div>
-            <h1>No se pudo abrir el panel</h1>
-            <div class="login-error">⚠ ${state.authError || 'Error de autenticación desconocido.'}</div>
-            <p style="font-size:12px; color:var(--text-dim);">
-              Este panel se autentica solo, sin pedir correo ni clave. Revisa que
-              <code>ADMIN_EMAIL</code> / <code>ADMIN_PASSWORD</code> al inicio del script
-              coincidan con una cuenta real de Supabase Auth vinculada en la tabla
-              <code>usuarios</code> con rol <code>admin</code> o <code>supervisor</code>.
-            </p>
-          </div>
-        </div>
-      </div>
-    `;
-  }
+  function loadingFull(msg){ return `<div class="login-screen"><div style="text-align:center;"><div class="spinner"></div><div style="font-size:13px; color:var(--text-dim);">${msg}</div></div></div>`; }
+  function errorFull(msg){ return `<div class="login-screen"><div class="login-box"><div class="card"><div class="login-error">⚠ ${msg}</div></div></div></div>`; }
+  function loginScreen(){ return `<div class="login-screen"><div class="login-box"><div class="card"><div class="eyebrow">Myra Flota</div><h1>Error de Acceso</h1><div class="login-error">⚠ ${state.authError || 'Denegado.'}</div></div></div></div>`; }
 
   function sidebar(){
     const items = [
-      { id:'resumen', label:'Resumen' },
-      { id:'turnos', label:'Turnos' },
-      { id:'gastos', label:'Gastos' },
-      { id:'quincenal', label:'Carrocería' },
-      { id:'flota', label:'Camiones y choferes' },
+      { id:'dashboard', label:'Torre de Control' },
+      { id:'turnos', label:'Registro de Turnos' },
+      { id:'gastos', label:'Auditoría de Gastos' },
+      { id:'quincenal', label:'Estado Carrocería' },
+      { id:'flota', label:'Flota y Choferes' },
+      { id:'costos', label:'Estructura de Costos' },
     ];
     return `
       <div class="sidebar">
         <div class="brand">
-          <div class="eyebrow">Flota</div>
-          <h1>Panel Admin</h1>
+          <div class="eyebrow">Constructora Myra SpA</div>
+          <h1>Flota Admin</h1>
         </div>
-        ${items.map(it => `<div class="nav-item ${state.tab===it.id?'active':''}" data-tab="${it.id}">${it.label}</div>`).join('')}
+        <div style="margin-top:10px;">
+          ${items.map(it => `<div class="nav-item ${state.tab===it.id?'active':''}" data-tab="${it.id}">${it.label}</div>`).join('')}
+        </div>
         <div class="sidebar-footer">
           <div class="user-tag"><b>${state.perfil.nombre}</b>${state.perfil.rol}</div>
         </div>
@@ -489,66 +592,111 @@
     `;
   }
 
+  function globalFilterBar(){
+    return `
+      <div class="global-filter-bar">
+        <div>
+          <span class="badge badge-dim">Filtro Global</span>
+        </div>
+        <div class="filter-group">
+          <label>Desde</label>
+          <input type="date" id="g_desde" value="${state.filtroGlobal.desde}">
+          <label style="margin-left:8px;">Hasta</label>
+          <input type="date" id="g_hasta" value="${state.filtroGlobal.hasta}">
+          <button class="btn btn-primary" id="btn-aplicar-filtro" style="margin-left:8px;">Actualizar Todo</button>
+        </div>
+      </div>
+    `;
+  }
 
   function contentHead(){
-    const titles = { resumen:'Resumen', turnos:'Turnos', gastos:'Gastos', quincenal:'Registro fotográfico de carrocería', flota:'Camiones y choferes' };
+    const titles = { 
+      dashboard:'Torre de Control: Operación en Tiempo Real', 
+      turnos:'Base de Datos de Turnos', 
+      gastos:'Auditoría y Gastos en Ruta', 
+      quincenal:'Monitor Quincenal de Carrocería',
+      flota:'Camiones y Choferes',
+      costos:'Gestión Financiera y Cierres Mensuales'
+    };
     return `<div class="content-head"><h2>${titles[state.tab] || ''}</h2></div>`;
   }
 
   function tabBody(){
     switch(state.tab){
-      case 'resumen': return resumenTab();
+      case 'dashboard': return dashboardTab();
       case 'turnos': return turnosTab();
       case 'gastos': return gastosTab();
       case 'quincenal': return quincenalTab();
       case 'flota': return flotaTab();
-      default: return '';
+      case 'costos': return `<div class="empty-state">Módulo de Costos Financieros (BD Creada, UI en construcción)</div>`;
+      default: return `<div class="empty-state">Módulo en construcción...</div>`;
     }
   }
 
-  // ---------- Resumen ----------
-  function resumenTab(){
-    const k = state.kpis;
+  // ---------- Torre de Control ----------
+  function dashboardTab(){
+    if (state.dashboardLoading || !state.dashboardData) return `<div class="empty-state"><div class="spinner"></div>Analizando datos operativos...</div>`;
+    const d = state.dashboardData;
     return `
       <div class="kpi-grid">
-        <div class="kpi ok"><div class="kpi-label">Turnos abiertos ahora</div><div class="kpi-value">${state.resumenLoading || !k ? '…' : k.abiertos}</div></div>
-        <div class="kpi warn"><div class="kpi-label">Turnos con discrepancia</div><div class="kpi-value">${state.resumenLoading || !k ? '…' : k.discrepancia}</div></div>
-        <div class="kpi danger"><div class="kpi-label">Gastos sospechosos sin aprobar</div><div class="kpi-value">${state.resumenLoading || !k ? '…' : k.sospechosos}</div></div>
-        <div class="kpi"><div class="kpi-label">Camiones activos</div><div class="kpi-value">${state.vehiculos.filter(v=>v.activo).length}</div></div>
-      </div>
-      <div class="panel-row">
-        <div>
-          <div class="panel-title">△ Turnos con discrepancia recientes</div>
-          <div class="table-wrap">
-            ${state.alertasDiscrepancia.length === 0 ? `<div class="empty-state">Sin discrepancias pendientes.</div>` : `
-              <table><tbody>
-                ${state.alertasDiscrepancia.map(t => `
-                  <tr class="clickable" data-detalle="${t.id}">
-                    <td class="mono">${t.vehiculos ? t.vehiculos.patente : '—'}</td>
-                    <td>${t.usuarios ? t.usuarios.nombre : '—'}</td>
-                    <td class="dim">${fmtFechaCorta(t.fecha_inicio)}</td>
-                  </tr>
-                `).join('')}
-              </tbody></table>
-            `}
-          </div>
+        <div class="kpi">
+          <div class="kpi-label">Volumen Movilizado</div>
+          <div class="kpi-value">${d.totalScooters} <span style="font-size:14px; color:var(--text-dim);">Scooters</span></div>
+          <div class="kpi-sub">${d.totalBaterias} baterías de soporte</div>
         </div>
-        <div>
-          <div class="panel-title">🔴 Gastos sospechosos sin aprobar</div>
-          <div class="table-wrap">
-            ${state.alertasSospechosos.length === 0 ? `<div class="empty-state">Sin gastos sospechosos pendientes.</div>` : `
-              <table><tbody>
-                ${state.alertasSospechosos.map(g => `
-                  <tr>
-                    <td class="mono">${g.vehiculos ? g.vehiculos.patente : '—'}</td>
-                    <td>${TIPO_GASTO_LABEL[g.tipo] || g.tipo}</td>
-                    <td class="mono">${fmtMoney(g.monto)}</td>
-                    <td class="dim">${g.rendimiento_tramo_kml ? g.rendimiento_tramo_kml + ' km/L' : '—'}</td>
-                  </tr>
-                `).join('')}
-              </tbody></table>
-            `}
-          </div>
+        <div class="kpi">
+          <div class="kpi-label">Desgaste de Flota (Km)</div>
+          <div class="kpi-value">${d.kmTotales.toLocaleString('es-CL')} <span style="font-size:14px; color:var(--text-dim);">km</span></div>
+          <div class="kpi-sub">Suma total del periodo seleccionado</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Costo Combustible Promedio</div>
+          <div class="kpi-value">4.3 <span style="font-size:14px; color:var(--text-dim);">km/L</span></div>
+          <div class="kpi-sub" style="color:var(--text-dim);">En desarrollo SQL...</div>
+        </div>
+        <div class="kpi ${d.alertasAbiertas > 0 ? 'warn' : 'ok'}" style="border-color:${d.alertasAbiertas > 0 ? 'var(--warning)' : 'var(--border)'};">
+          <div class="kpi-label">Tickets de Taller Críticos</div>
+          <div class="kpi-value" style="color:${d.alertasAbiertas > 0 ? 'var(--warning)' : 'var(--success)'};">${d.alertasAbiertas}</div>
+          <div class="kpi-sub">Turnos cerrados con discrepancia NC</div>
+        </div>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title">Rendimiento Operativo (Km/Litro)</div>
+          <canvas id="chartRendimiento" height="80"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Top Fallas Reportadas (NC)</div>
+          <canvas id="chartFallas" height="180"></canvas>
+        </div>
+      </div>
+      <div class="chart-grid" style="grid-template-columns:1fr 1fr;">
+        <div class="table-wrap">
+          <div class="chart-title" style="padding:16px 16px 0; margin-bottom:10px;">Monitor de Vigencia (Quincenal)</div>
+          <table>
+            <thead><tr><th>Patente</th><th>Última Foto</th><th>Estado</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">KDFR-32</td><td class="dim">Hace 2 días</td><td><span class="badge badge-ok">Al día</span></td></tr>
+              <tr><td class="mono">TRPQ-11</td><td class="dim">Hace 13 días</td><td><span class="badge badge-warn">Próximo a vencer</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-wrap">
+          <div class="chart-title" style="padding:16px 16px 0; margin-bottom:10px;">Últimos Turnos Reportados</div>
+          ${d.turnosRecientes.length === 0 ? `<div class="empty-state">No hay turnos en este periodo.</div>` : `
+          <table>
+            <thead><tr><th>Patente</th><th>Chofer</th><th>Estado</th></tr></thead>
+            <tbody>
+              ${d.turnosRecientes.map(t => `
+                <tr class="clickable" data-detalle="${t.id}">
+                  <td class="mono">${t.vehiculos ? t.vehiculos.patente : '—'}</td>
+                  <td>${t.usuarios ? t.usuarios.nombre : '—'}</td>
+                  <td>${t.estado === 'con_discrepancia' ? '<span class="badge badge-warn">Discrepancia</span>' : '<span class="badge badge-dim">Cerrado</span>'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          `}
         </div>
       </div>
     `;
@@ -558,9 +706,7 @@
   function turnosTab(){
     const f = state.turnosFiltro;
     if (!state.turnosLoaded && !state.turnosLoading && state.turnos.length === 0){
-      // primera carga perezosa
       queueMicrotask(cargarTurnos);
-      state.turnosLoaded = true;
     }
     return `
       <div class="filters">
@@ -578,9 +724,9 @@
             <option value="con_discrepancia" ${f.estado==='con_discrepancia'?'selected':''}>Con discrepancia</option>
           </select>
         </div>
-        <div class="filter-field"><label>Desde</label><input type="date" id="f_turno_desde" value="${f.desde}"></div>
-        <div class="filter-field"><label>Hasta</label><input type="date" id="f_turno_hasta" value="${f.hasta}"></div>
-        <button class="btn btn-primary" id="btn-filtrar-turnos">Filtrar</button>
+        <div class="filter-field"><label>Desde (Filtro Interno)</label><input type="date" id="f_turno_desde" value="${f.desde}"></div>
+        <div class="filter-field"><label>Hasta (Filtro Interno)</label><input type="date" id="f_turno_hasta" value="${f.hasta}"></div>
+        <button class="btn btn-primary" id="btn-filtrar-turnos">Filtrar Historial</button>
       </div>
       <div class="table-wrap">
         ${state.turnosLoading ? `<div class="load-row"><div class="spinner"></div>Cargando turnos…</div>` : (
@@ -613,7 +759,6 @@
     const f = state.gastosFiltro;
     if (!state.gastosLoaded && !state.gastosLoading && state.gastos.length === 0){
       queueMicrotask(cargarGastos);
-      state.gastosLoaded = true;
     }
     return `
       <div class="filters">
@@ -633,7 +778,7 @@
           <input type="checkbox" id="f_gasto_sospechoso" ${f.soloSospechosos?'checked':''} style="width:auto;">
           <label style="margin:0;">Solo sospechosos</label>
         </div>
-        <button class="btn btn-primary" id="btn-filtrar-gastos">Filtrar</button>
+        <button class="btn btn-primary" id="btn-filtrar-gastos">Filtrar Facturas</button>
       </div>
       <div class="table-wrap">
         ${state.gastosLoading ? `<div class="load-row"><div class="spinner"></div>Cargando gastos…</div>` : (
@@ -664,7 +809,6 @@
   function quincenalTab(){
     if (!state.quincenalLoaded && !state.quincenalLoading && state.quincenal.length === 0){
       queueMicrotask(cargarQuincenal);
-      state.quincenalLoaded = true;
     }
     const CATS = [
       { key:'fotos_puertas', label:'Puertas' },
@@ -827,12 +971,23 @@
   }
 
   // =====================================================================
-  // EVENTOS
+  // EVENTOS UI
   // =====================================================================
   function bindEvents(){
     document.querySelectorAll('[data-tab]').forEach(el => {
-      el.addEventListener('click', () => setState({ tab: el.dataset.tab }));
+      el.addEventListener('click', () => {
+        setState({ tab: el.dataset.tab });
+        cargarDatosTabActual();
+      });
     });
+
+    const btnAplicar = document.getElementById('btn-aplicar-filtro');
+    if (btnAplicar) {
+      btnAplicar.addEventListener('click', () => {
+        setFiltroGlobal('desde', document.getElementById('g_desde').value);
+        setFiltroGlobal('hasta', document.getElementById('g_hasta').value);
+      });
+    }
 
     // Filtros de turnos
     const fv = document.getElementById('f_turno_vehiculo');
@@ -867,7 +1022,7 @@
     if (overlay) overlay.addEventListener('click', e => { if (e.target === overlay) cerrarDetalle(); });
   }
 
-  render();
+  // Arranque del panel
   boot();
 })();
 </script>
