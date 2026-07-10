@@ -44,18 +44,21 @@
   #app{min-height:100vh;}
   .shell{display:flex; min-height:100vh;}
   .sidebar{
-    width:230px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--border);
-    padding:22px 16px; display:flex; flex-direction:column; position:sticky; top:0; height:100vh;
+    width:240px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--border);
+    padding:22px 16px; display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto;
   }
   .brand{margin-bottom:26px;}
   .brand h1{font-size:17px; margin-top:4px; color:var(--accent);}
+  
+  .nav-group{font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin:18px 0 6px 12px; font-weight:700;}
   .nav-item{
     display:flex; align-items:center; gap:10px;
     font-family:'Oswald',sans-serif; font-size:13px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;
-    color:var(--text-dim); padding:11px 12px; border-radius:8px; cursor:pointer; margin-bottom:4px;
+    color:var(--text-dim); padding:10px 12px; border-radius:8px; cursor:pointer; margin-bottom:2px;
   }
   .nav-item:hover{background:var(--surface-alt); color:var(--text);}
   .nav-item.active{background:var(--accent-dim); color:var(--accent);}
+  
   .sidebar-footer{margin-top:auto; padding-top:16px; border-top:1px solid var(--border);}
   .user-tag{font-size:12px; color:var(--text-dim); margin-bottom:10px;}
   .user-tag b{color:var(--text); display:block; font-size:13px;}
@@ -87,9 +90,9 @@
   .btn-ghost{background:transparent; border:1px solid var(--border); color:var(--text);}
   
   label{display:block; font-size:12px; color:var(--text-dim); margin-bottom:6px; letter-spacing:0.3px;}
-  input[type=text], input[type=email], input[type=password], input[type=date], select{
+  input[type=text], input[type=number], input[type=email], input[type=password], input[type=date], select{
     background:#0D0F13; border:1px solid var(--border); color:var(--text);
-    font-family:'JetBrains Mono',monospace; font-size:14px; padding:9px 12px; border-radius:8px;
+    font-family:'JetBrains Mono',monospace; font-size:14px; padding:9px 12px; border-radius:8px; width:100%;
   }
   select{font-family:'Inter',sans-serif;}
   input:focus, select:focus{outline:2px solid var(--accent); border-color:transparent;}
@@ -112,13 +115,16 @@
   .chart-card{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px;}
   .chart-title{font-size:13px; font-weight:600; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;}
 
-  /* ---------- Kanban Board ---------- */
-  .kanban-board { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 10px; }
-  .kanban-col { background: var(--surface-alt); border-radius: 10px; width: 320px; flex-shrink: 0; display: flex; flex-direction: column; max-height: 70vh; }
+  /* ---------- Kanban Board Drag & Drop ---------- */
+  .kanban-board { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 10px; align-items: flex-start;}
+  .kanban-col { background: var(--surface-alt); border-radius: 10px; width: 320px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 200px; max-height: 70vh; border: 2px dashed transparent; transition: border-color 0.2s;}
+  .kanban-col.drag-over { border-color: var(--accent); }
   .kanban-header { padding: 14px 16px; border-bottom: 1px solid var(--border); font-family: 'Oswald', sans-serif; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; }
-  .kanban-body { padding: 16px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px; }
-  .ticket-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: border-color 0.2s; }
+  .kanban-body { padding: 16px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px; min-height:100px;}
+  
+  .ticket-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: grab; transition: border-color 0.2s; position:relative; }
   .ticket-card:hover { border-color: var(--text-dim); }
+  .ticket-card:active { cursor: grabbing; }
   .ticket-card .t-patente { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px; margin-bottom: 4px; }
   .ticket-card .t-falla { font-size: 14px; font-weight: 600; color: var(--danger); margin-bottom: 8px; }
   .ticket-card .t-desc { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; line-height: 1.4; }
@@ -152,40 +158,29 @@
   @media (max-width: 900px){ .panel-row{grid-template-columns:1fr;} }
   .panel-title{font-size:13px; font-weight:600; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;}
 
-  /* ---------- Drawer (Panel Lateral) y Fotos Restaurados ---------- */
+  /* ---------- Drawer y Fotos ---------- */
   .overlay{position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:20; display:flex; justify-content:flex-end;}
   .drawer{width:100%; max-width:560px; background:var(--bg); border-left:1px solid var(--border); height:100vh; overflow-y:auto; padding:24px 26px;}
   .drawer-head{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px;}
   .drawer-close{background:var(--surface-alt); border:1px solid var(--border); color:var(--text); width:32px; height:32px; border-radius:8px; cursor:pointer;}
-  
   .drawer-section{margin-bottom:22px;}
   .drawer-section-title{font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-dim); font-family:'Oswald',sans-serif; margin-bottom:10px;}
   .meta-row{display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border); font-size:13px;}
   .meta-row span:last-child{font-family:'JetBrains Mono',monospace; font-weight:600;}
-  
   .chk-item{background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:12px 14px; margin-bottom:8px;}
   .chk-item-top{display:flex; justify-content:space-between; align-items:center; gap:8px;}
   .chk-item-name{font-size:13px;}
   .chk-comment{font-size:12px; color:var(--text-dim); margin-top:6px;}
-  
   .log-item{background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:11px 14px; margin-bottom:8px; font-size:13px;}
   .log-item .log-top{display:flex; justify-content:space-between;}
   .log-item .dim{font-size:12px;}
-  
-  .thumb{width:34px; height:34px; object-fit:cover; border-radius:6px; border:1px solid var(--border);}
-  .odo-photos{display:flex; flex-wrap:wrap; gap:10px; margin-top:8px;}
-  .odo-photos img{width:90px; height:90px; object-fit:cover; border-radius:8px; border:1px solid var(--border);}
-  .chk-photo-link{display:inline-block; margin-top:8px; margin-right:6px;}
+  .thumb{width:40px; height:40px; object-fit:cover; border-radius:6px; border:1px solid var(--border); display:block;}
+  .odo-photos{display:flex; gap:8px; margin-top:10px;}
+  .odo-photos a{display:block; width:80px; height:80px;}
+  .odo-photos img{width:100%; height:100%; object-fit:cover; border-radius:8px; border:1px solid var(--border);}
+  .chk-photo-link{display:inline-block; margin-top:8px;}
+  .chk-photo-link img{width:60px; height:60px; object-fit:cover; border-radius:6px; border:1px solid var(--border);}
 
-  /* ---------- Galería quincenal ---------- */
-  .quincenal-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:16px;}
-  .quincenal-card{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px;}
-  .quincenal-card .vp{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:15px;}
-  .quincenal-card .fecha{font-size:12px; color:var(--text-dim); margin-bottom:10px;}
-  .quincenal-cat{font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin:10px 0 6px;}
-  .quincenal-photos{display:grid; grid-template-columns:repeat(auto-fill, minmax(56px,1fr)); gap:6px;}
-  .quincenal-photos img{width:100%; height:56px; object-fit:cover; border-radius:6px; border:1px solid var(--border);}
-  
   /* Loading & Errors */
   .spinner{width:26px; height:26px; border-radius:50%; border:3px solid var(--border); border-top-color:var(--accent); animation:spin .8s linear infinite; margin:0 auto 10px;}
   @keyframes spin{to{transform:rotate(360deg);}}
@@ -218,9 +213,9 @@
   const ESTADOS_NO_OK = ['nc', 'observacion', 'falla'];
   function esNoOk(estado){ return ESTADOS_NO_OK.includes(estado); }
 
-  // Variables globales para Chart.js para poder destruirlas y recrearlas
+  let chartGerenciaInstance = null;
+  let chartTopCostosInstance = null;
   let chartRendimientoInstance = null;
-  let chartFallasInstance = null;
 
   // Establecer el mes actual para el filtro global por defecto
   const hoy = new Date();
@@ -234,7 +229,7 @@
     authError: null,
     configError: !supabase,
 
-    tab: 'dashboard',
+    tab: 'gerencia', // Nueva pestaña principal por defecto
     
     // Filtro Global
     filtroGlobal: { desde: primerDiaMes, hasta: ultimoDiaMes },
@@ -243,33 +238,37 @@
     choferes: [],
     dataBoot: false,
     
-    dashboardData: null,
+    // Almacena datos transversales calculados en el dashboard
+    datosPeriodo: {
+        ingresoCalculado: 0,
+        horasCalculadas: 0,
+        totalCombustible: 0,
+        // ...
+    },
     dashboardLoading: false,
 
     turnos: [],
     turnosLoading: false,
-    turnosFiltro: { vehiculo:'', estado:'', desde:'', hasta:'' },
-    turnosLoaded: false,
+    turnosFiltro: { vehiculo:'', chofer:'', estado:'', desde:'', hasta:'' }, 
 
     gastos: [],
     gastosLoading: false,
     gastosFiltro: { vehiculo:'', tipo:'', soloSospechosos:false },
-    gastosLoaded: false,
 
-    quincenal: [],
-    quincenalLoading: false,
-    quincenalLoaded: false,
-
-    // MOCK DEL KANBAN HASTA CREAR TABLA EN BD
     kanbanData: {
-      pendientes: [],
-      en_taller: [],
-      resueltos: []
+      Pendiente: [],
+      'En Reparación': [],
+      Resuelto: []
     },
+    tallerLoading: false,
 
     detalleTurnoId: null,
     detalle: null,
     detalleLoading: false,
+    
+    // Inputs extras temporales para Gerencia
+    ingresoExtraManual: 0,
+    nombreIngresoExtra: 'Bono / Otros',
   };
 
   function setState(patch){ state = Object.assign({}, state, patch); scheduleRender(); }
@@ -298,14 +297,13 @@
     return new Date(iso).toLocaleDateString('es-CL', { day:'2-digit', month:'2-digit', year:'numeric' });
   }
   
-  // Separador inteligente de fotos (soporta multiples fotos por item)
   function renderThumbnails(urlStr) {
     if(!urlStr) return '<span class="dim">—</span>';
     return urlStr.split(',').filter(Boolean).map(u => `<a href="${u}" target="_blank"><img class="thumb" style="display:inline-block; margin-right:4px;" src="${u}"></a>`).join('');
   }
   function renderDrawerChecklistPhotos(urlStr) {
     if(!urlStr) return '';
-    return urlStr.split(',').filter(Boolean).map(u => `<a class="chk-photo-link" href="${u}" target="_blank"><img class="thumb" style="width:60px; height:60px;" src="${u}"></a>`).join('');
+    return urlStr.split(',').filter(Boolean).map(u => `<a class="chk-photo-link" href="${u}" target="_blank"><img src="${u}"></a>`).join('');
   }
 
   const TIPO_GASTO_LABEL = { combustible:'Combustible', peaje:'Peaje', mantencion:'Mantención', neumaticos:'Neumáticos', otro:'Otro' };
@@ -316,7 +314,7 @@
   };
 
   // =====================================================================
-  // INICIALIZACIÓN Y AUTH
+  // INICIALIZACIÓN Y SYNC
   // =====================================================================
   async function boot(){
     if (!supabase){ setState({ booting:false }); return; }
@@ -335,19 +333,44 @@
 
   async function cargarPerfil(){
     try {
-      const { data: authData, error: authErr } = await supabase.auth.getUser();
-      if (authErr || !authData || !authData.user) throw new Error('Sesión inválida.');
-      const { data: perfil, error: perfilErr } = await supabase
-        .from('usuarios').select('id, nombre, rol').eq('auth_user_id', authData.user.id).maybeSingle();
-      if (perfilErr) throw perfilErr;
-      if (!perfil){ setState({ booting:false, accessDenied:true, authError:'La cuenta admin no está vinculada a un perfil.' }); return; }
+      const { data: authData } = await supabase.auth.getUser();
+      const { data: perfil } = await supabase.from('usuarios').select('id, nombre, rol').eq('auth_user_id', authData.user.id).maybeSingle();
+      if (!perfil){ setState({ booting:false, accessDenied:true, authError:'La cuenta admin no está vinculada.' }); return; }
       
       setState({ booting:false, perfil, accessDenied:false });
-      cargarDatosBase();
+      
+      await sincronizarNCaTaller();
+      await cargarDatosBase();
       cargarDatosTabActual();
     } catch(e){
-      setState({ booting:false, accessDenied:true, authError: e.message || String(e) });
+      setState({ booting:false, accessDenied:true, authError: e.message });
     }
+  }
+
+  async function sincronizarNCaTaller() {
+    try {
+      const { data: ncs } = await supabase.from('inspeccion_respuestas')
+        .select('id, comentario, checklist_items(nombre, categoria), checklists_realizados(vehiculo_id)')
+        .in('estado', ESTADOS_NO_OK);
+      
+      if(!ncs || ncs.length === 0) return;
+      const { data: tickets } = await supabase.from('tickets_taller').select('respuesta_origen_id').not('respuesta_origen_id', 'is', null);
+      const ticketIds = new Set((tickets || []).map(t => t.respuesta_origen_id));
+
+      const nuevosTickets = [];
+      for (let nc of ncs) {
+        if (!ticketIds.has(nc.id) && nc.checklists_realizados?.vehiculo_id) {
+          nuevosTickets.push({
+            vehiculo_id: nc.checklists_realizados.vehiculo_id,
+            respuesta_origen_id: nc.id,
+            categoria: nc.checklist_items?.categoria || 'General',
+            descripcion: nc.comentario || ('Falla en: ' + (nc.checklist_items?.nombre || 'Elemento')),
+            estado: 'Pendiente'
+          });
+        }
+      }
+      if (nuevosTickets.length > 0) await supabase.from('tickets_taller').insert(nuevosTickets);
+    } catch (e) { console.error("Error sincronizando taller:", e); }
   }
 
   async function cargarDatosBase(){
@@ -359,42 +382,73 @@
   }
 
   function cargarDatosTabActual(){
-    if (state.tab === 'dashboard' || state.tab === 'taller') cargarDashboard();
+    if (state.tab === 'gerencia' || state.tab === 'operacion' || state.tab === 'costos') cargarDatosGlobales();
+    if (state.tab === 'taller') cargarTallerKanban();
     if (state.tab === 'turnos') cargarTurnos();
     if (state.tab === 'gastos') cargarGastos();
-    if (state.tab === 'quincenal') cargarQuincenal();
   }
 
   // =====================================================================
-  // CARGA DE DATOS PRINCIPALES Y CÁLCULOS DINÁMICOS
+  // MOTOR MATEMÁTICO: GERENCIA Y OPERACIÓN
   // =====================================================================
-  async function cargarDashboard(){
+  function calcularIngresosExactos(desdeStr, hastaStr) {
+      // Regla de Negocio: 24h los viernes, 22h resto de días. a 8250 la hora.
+      let d = new Date(desdeStr + 'T00:00:00');
+      let end = new Date(hastaStr + 'T23:59:59');
+      let totalHoras = 0;
+      
+      while(d <= end) {
+          // getDay() 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+          if(d.getDay() === 5) totalHoras += 24; 
+          else totalHoras += 22;
+          d.setDate(d.getDate() + 1);
+      }
+      return { horas: totalHoras, ingresoBase: totalHoras * 8250 };
+  }
+
+  async function cargarDatosGlobales(){
     setState({ dashboardLoading:true });
     try {
-      const fechaDesde = state.filtroGlobal.desde + 'T00:00:00';
-      const fechaHasta = state.filtroGlobal.hasta + 'T23:59:59';
+      const fD = state.filtroGlobal.desde + 'T00:00:00';
+      const fH = state.filtroGlobal.hasta + 'T23:59:59';
 
-      const { data: turnos } = await supabase.from('turnos')
-        .select('*, vehiculos(patente), usuarios(nombre)')
-        .gte('fecha_inicio', fechaDesde)
-        .lte('fecha_inicio', fechaHasta)
-        .order('fecha_inicio',{ascending:false});
+      const [{ data: turnos }, { data: viajes }, { data: gastos }] = await Promise.all([
+        supabase.from('turnos').select('*, vehiculos(patente), usuarios(id, nombre)').gte('fecha_inicio', fD).lte('fecha_inicio', fH).order('fecha_inicio',{ascending:false}),
+        supabase.from('viajes_bodega').select('*').gte('hora_salida_bodega', fD).lte('hora_salida_bodega', fH),
+        supabase.from('gastos').select('*').gte('fecha', fD).lte('fecha', fH)
+      ]);
 
-      const { data: viajes } = await supabase.from('viajes_bodega')
-        .select('*')
-        .gte('hora_salida_bodega', fechaDesde)
-        .lte('hora_salida_bodega', fechaHasta);
+      // --- CÁLCULO DE INGRESOS ---
+      const calculoDinero = calcularIngresosExactos(state.filtroGlobal.desde, state.filtroGlobal.hasta);
+      
+      // --- CÁLCULO DE COSTOS DIRECTOS (Gastos) ---
+      let totalCombustible = 0;
+      let totalPeajes = 0;
+      let totalMantenimiento = 0;
+      (gastos || []).forEach(g => {
+         const m = parseFloat(g.monto) || 0;
+         if(g.tipo === 'combustible') totalCombustible += m;
+         else if(g.tipo === 'peaje') totalPeajes += m;
+         else totalMantenimiento += m;
+      });
+      // (Los sueldos y arriendos los simulamos temporalmente hasta cruzar con la BD Financiera que creamos)
+      const costoSueldosFijos = 1800000; 
+      const costoArriendosFijos = 1200000;
+      const costoTotalMes = totalCombustible + totalPeajes + totalMantenimiento + costoSueldosFijos + costoArriendosFijos;
 
-      const { data: fallasRaw } = await supabase.from('inspeccion_respuestas')
-        .select('*, checklist_items(nombre, categoria), checklists_realizados!inner(turno_id, turnos(fecha_inicio))')
-        .in('estado', ESTADOS_NO_OK)
-        .gte('checklists_realizados.turnos.fecha_inicio', fechaDesde)
-        .lte('checklists_realizados.turnos.fecha_inicio', fechaHasta);
-
-      // --- CÁLCULO DE KPIS ---
+      // --- CÁLCULO OPERACIONAL (Choferes, Km, Carga) ---
       let kmTotales = 0;
+      const choferStats = {}; 
+
       (turnos || []).forEach(t => {
-        if (t.odometro_fin != null) kmTotales += (t.odometro_fin - t.odometro_inicio);
+        const dist = (t.odometro_fin != null) ? (t.odometro_fin - t.odometro_inicio) : 0;
+        kmTotales += dist;
+
+        if(t.usuarios) {
+          if(!choferStats[t.usuarios.id]) choferStats[t.usuarios.id] = { nombre: t.usuarios.nombre, km: 0, turnos: 0 };
+          choferStats[t.usuarios.id].km += dist;
+          choferStats[t.usuarios.id].turnos += 1;
+        }
       });
 
       let totalScooters = 0;
@@ -404,57 +458,37 @@
         totalBaterias += (v.baterias_cargadas || 0);
       });
 
-      const numViajes = (viajes || []).length;
-      const promScooters = numViajes > 0 ? (totalScooters / numViajes).toFixed(1) : 0;
-      const promBaterias = numViajes > 0 ? (totalBaterias / numViajes).toFixed(1) : 0;
-
-      // --- AGRUPAR FALLAS (EVITAR DUPLICADOS) PARA GRÁFICO ---
-      const fallasUnicas = {};
-      const mockKanbanPendientes = [];
-      
-      (fallasRaw || []).forEach(f => {
-        const categoria = f.checklist_items ? f.checklist_items.categoria : 'Desconocido';
-        const nombreFalla = f.checklist_items ? f.checklist_items.nombre : 'Falla';
-        
-        fallasUnicas[categoria] = (fallasUnicas[categoria] || 0) + 1;
-        
-        mockKanbanPendientes.push({
-          id: f.id,
-          patente: f.checklists_realizados?.turnos?.vehiculos?.patente || 'Camión',
-          falla: nombreFalla,
-          comentario: f.comentario || 'Sin detalle provisto por el chofer.',
-          fecha: f.checklists_realizados?.turnos?.fecha_inicio
-        });
-      });
-
-      const topFallasArr = Object.keys(fallasUnicas)
-        .map(key => ({ nombre: key, count: fallasUnicas[key] }))
-        .sort((a,b) => b.count - a.count)
-        .slice(0, 5);
+      // SOLUCIÓN: Ranking basado SÓLO en el menor Kilometraje promedio por turno (Lo más simple)
+      const rankingChoferes = Object.values(choferStats)
+        .filter(c => c.turnos > 0)
+        .map(c => ({ nombre: c.nombre, promKm: c.km / c.turnos }))
+        .sort((a,b) => a.promKm - b.promKm) // De menor a mayor (Menos km es mejor)
+        .slice(0, 3); 
 
       setState({
         dashboardLoading: false,
-        dashboardData: {
-          kmTotales,
-          promScooters,
-          promBaterias,
-          numViajes,
-          topFallasLabels: topFallasArr.map(x => x.nombre),
-          topFallasData: topFallasArr.map(x => x.count),
+        datosPeriodo: {
+          ...calculoDinero,
+          totalCombustible, totalPeajes, totalMantenimiento, costoTotalMes, costoSueldosFijos, costoArriendosFijos,
+          kmTotales, totalScooters, totalBaterias, rankingChoferes,
+          numViajes: (viajes||[]).length,
           turnosRecientes: (turnos || []).slice(0, 5)
-        },
-        kanbanData: {
-          pendientes: mockKanbanPendientes,
-          en_taller: [], 
-          resueltos: []  
         }
       });
       
       setTimeout(renderizarGraficos, 50);
       
-    } catch(e){
-      setState({ dashboardLoading:false });
-    }
+    } catch(e){ setState({ dashboardLoading:false }); }
+  }
+
+  async function cargarTallerKanban(){
+    setState({ tallerLoading: true });
+    const { data: tickets } = await supabase.from('tickets_taller').select('*, vehiculos(patente)').order('fecha_reporte', {ascending: false});
+    
+    const agrupado = { Pendiente: [], 'En Reparación': [], Resuelto: [] };
+    (tickets || []).forEach(t => { if(agrupado[t.estado]) agrupado[t.estado].push(t); });
+    
+    setState({ tallerLoading: false, kanbanData: agrupado });
   }
 
   async function cargarTurnos(){
@@ -466,36 +500,25 @@
     q = q.lte('fecha_inicio', state.filtroGlobal.hasta + 'T23:59:59');
 
     if (f.vehiculo) q = q.eq('vehiculo_id', f.vehiculo);
+    if (f.chofer) q = q.eq('chofer_id', f.chofer); 
     if (f.estado) q = q.eq('estado', f.estado);
 
     const { data, error } = await q;
-    setState({ turnosLoading:false, turnos: error ? [] : (data || []), turnosLoaded: true });
+    setState({ turnosLoading:false, turnos: error ? [] : (data || []) });
   }
 
   async function cargarGastos(){
     setState({ gastosLoading:true });
     const f = state.gastosFiltro;
     let q = supabase.from('gastos').select('*, vehiculos(patente,marca,modelo)').order('fecha',{ascending:false}).limit(300);
-    
     q = q.gte('fecha', state.filtroGlobal.desde + 'T00:00:00');
     q = q.lte('fecha', state.filtroGlobal.hasta + 'T23:59:59');
-
     if (f.vehiculo) q = q.eq('vehiculo_id', f.vehiculo);
     if (f.tipo) q = q.eq('tipo', f.tipo);
     if (f.soloSospechosos) q = q.eq('es_sospechoso', true);
     
     const { data, error } = await q;
-    setState({ gastosLoading:false, gastos: error ? [] : (data || []), gastosLoaded: true });
-  }
-
-  async function cargarQuincenal(){
-    setState({ quincenalLoading:true });
-    const { data, error } = await supabase
-      .from('registro_fotografico_quincenal')
-      .select('*, vehiculos(patente,marca,modelo), usuarios(nombre)')
-      .order('fecha_registro', { ascending:false })
-      .limit(60);
-    setState({ quincenalLoading:false, quincenal: error ? [] : (data || []), quincenalLoaded: true });
+    setState({ gastosLoading:false, gastos: error ? [] : (data || []) });
   }
 
   async function abrirDetalleTurno(turnoId){
@@ -510,88 +533,83 @@
 
       const checklistsConRespuestas = [];
       for (const c of (checklists || [])){
-        const { data: respuestas } = await supabase
-          .from('inspeccion_respuestas')
-          .select('*, checklist_items(nombre,categoria,es_critico)')
-          .eq('checklist_id', c.id);
+        const { data: respuestas } = await supabase.from('inspeccion_respuestas').select('*, checklist_items(nombre,categoria,es_critico)').eq('checklist_id', c.id);
         checklistsConRespuestas.push({ checklist: c, respuestas: respuestas || [] });
       }
-
-      setState({
-        detalleLoading:false,
-        detalle: { turno, checklists: checklistsConRespuestas, viajes: viajes || [], gastos: gastos || [] },
-      });
-    } catch(e){
-      setState({ detalleLoading:false, detalle: { error: e.message || String(e) } });
-    }
+      setState({ detalleLoading:false, detalle: { turno, checklists: checklistsConRespuestas, viajes: viajes || [], gastos: gastos || [] } });
+    } catch(e){ setState({ detalleLoading:false, detalle: { error: e.message } }); }
   }
-
   function cerrarDetalle(){ setState({ detalleTurnoId:null, detalle:null }); }
 
   // =====================================================================
-  // GRÁFICOS (CHART.JS) DINÁMICOS
+  // DRAG AND DROP - KANBAN
+  // =====================================================================
+  window.kanbanDragStart = function(ev) {
+    ev.dataTransfer.setData("ticketId", ev.target.dataset.id);
+  };
+  window.kanbanAllowDrop = function(ev) {
+    ev.preventDefault();
+  };
+  window.kanbanDrop = async function(ev) {
+    ev.preventDefault();
+    const ticketId = ev.dataTransfer.getData("ticketId");
+    const col = ev.target.closest('.kanban-col');
+    if(!col || !ticketId) return;
+    
+    const nuevoEstado = col.dataset.estado;
+    const card = document.querySelector(`[data-id="${ticketId}"]`);
+    if(card) col.querySelector('.kanban-body').appendChild(card);
+
+    const { error } = await supabase.from('tickets_taller').update({estado: nuevoEstado}).eq('id', ticketId);
+    if(error) { alert("Error moviendo ticket"); cargarTallerKanban(); }
+  };
+
+  // =====================================================================
+  // GRÁFICOS (CHART.JS)
   // =====================================================================
   function renderizarGraficos(){
-    if(state.tab !== 'dashboard') return;
-    const ctxRendimiento = document.getElementById('chartRendimiento');
-    const ctxFallas = document.getElementById('chartFallas');
-    
-    if(!ctxRendimiento || !ctxFallas) return;
-
-    if(chartRendimientoInstance) chartRendimientoInstance.destroy();
-    if(chartFallasInstance) chartFallasInstance.destroy();
-
     Chart.defaults.color = '#9AA3AF';
     Chart.defaults.font.family = "'Inter', sans-serif";
 
-    const mockDataRend = Array.from({length: 5}, () => (Math.random() * (4.8 - 3.8) + 3.8).toFixed(1));
+    if(state.tab === 'gerencia'){
+       const ctxGerencia = document.getElementById('chartGerencia');
+       if(ctxGerencia){
+           if(chartGerenciaInstance) chartGerenciaInstance.destroy();
+           const d = state.datosPeriodo;
+           const ingresoTotal = d.ingresoBase + parseFloat(state.ingresoExtraManual);
+           chartGerenciaInstance = new Chart(ctxGerencia, {
+             type: 'bar',
+             data: {
+               labels: ['Ingresos vs Costos'],
+               datasets: [
+                 { label: 'Ingresos Totales', data: [ingresoTotal], backgroundColor: '#3DDC84', borderRadius: 4 },
+                 { label: 'Costos Totales', data: [d.costoTotalMes], backgroundColor: '#FF5C5C', borderRadius: 4 }
+               ]
+             },
+             options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { grid: { color: '#333844' } }, x: { grid: { display: false } } } }
+           });
+       }
+    }
 
-    chartRendimientoInstance = new Chart(ctxRendimiento, {
-      type: 'line',
-      data: {
-        labels: ['Carga 1', 'Carga 2', 'Carga 3', 'Carga 4', 'Carga 5'],
-        datasets: [{
-          label: 'Rendimiento (Km/L)',
-          data: mockDataRend,
-          borderColor: '#FFB020',
-          backgroundColor: 'rgba(255, 176, 32, 0.1)',
-          tension: 0.4,
-          fill: true
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { grid: { color: '#333844' }, min: 3 },
-          x: { grid: { display: false } }
-        }
-      }
-    });
-
-    const lblFallas = state.dashboardData.topFallasLabels.length > 0 ? state.dashboardData.topFallasLabels : ['Sin Fallas'];
-    const datFallas = state.dashboardData.topFallasData.length > 0 ? state.dashboardData.topFallasData : [0];
-
-    chartFallasInstance = new Chart(ctxFallas, {
-      type: 'bar',
-      data: {
-        labels: lblFallas,
-        datasets: [{
-          label: 'Veces Marcado (NC)',
-          data: datFallas,
-          backgroundColor: '#FF5C5C',
-          borderRadius: 4
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { grid: { color: '#333844' }, beginAtZero: true, ticks: { stepSize: 1 } },
-          x: { grid: { display: false } }
-        }
-      }
-    });
+    if(state.tab === 'costos'){
+       const ctxCostos = document.getElementById('chartTopCostos');
+       if(ctxCostos){
+           if(chartTopCostosInstance) chartTopCostosInstance.destroy();
+           const d = state.datosPeriodo;
+           chartTopCostosInstance = new Chart(ctxCostos, {
+             type: 'doughnut',
+             data: {
+               labels: ['Sueldos', 'Arriendo Equipos', 'Combustible', 'Mantenimiento y Peajes'],
+               datasets: [{
+                 data: [d.costoSueldosFijos, d.costoArriendosFijos, d.totalCombustible, d.totalMantenimiento + d.totalPeajes],
+                 backgroundColor: ['#3B82F6', '#9AA3AF', '#FFB020', '#FF5C5C'],
+                 borderWidth: 0
+               }]
+             },
+             options: { responsive: true, plugins: { legend: { position: 'right' } }, cutout: '70%' }
+           });
+       }
+    }
   }
 
   // =====================================================================
@@ -605,7 +623,7 @@
 
   function screenRoot(){
     if (state.configError) return errorFull('Falta configurar credenciales Supabase.');
-    if (state.booting) return loadingFull('Verificando acceso Admin…');
+    if (state.booting) return loadingFull('Sincronizando Módulos…');
     if (!state.perfil || state.accessDenied) return loginScreen();
     
     return `
@@ -628,24 +646,38 @@
   function loginScreen(){ return `<div class="login-screen"><div class="login-box"><div class="card"><div class="eyebrow">RembertCarg Flota</div><h1>Error de Acceso</h1><div class="login-error">⚠ ${state.authError || 'Denegado.'}</div></div></div></div>`; }
 
   function sidebar(){
-    const items = [
-      { id:'dashboard', label:'Torre de Control' },
-      { id:'taller', label:'Gestión de Taller (NC)' },
-      { id:'turnos', label:'Registro de Turnos' },
-      { id:'gastos', label:'Auditoría de Gastos' },
-      { id:'quincenal', label:'Estado Carrocería' },
-      { id:'flota', label:'Flota y Choferes' },
-      { id:'costos', label:'Estructura de Costos' },
-    ];
+    const navItems = {
+      gerencia: [
+        { id:'gerencia', label:'Ingresos vs Costos' },
+      ],
+      costos: [
+        { id:'costos', label:'Desglose de Costos' },
+        { id:'gastos', label:'Auditoría de Gastos (BD)' },
+      ],
+      operacion: [
+        { id:'operacion', label:'Dashboard Operativo' },
+        { id:'turnos', label:'Base de Turnos' },
+        { id:'taller', label:'Gestión de Taller (NC)' },
+        { id:'flota', label:'Flota y Choferes' },
+      ]
+    };
+
     return `
       <div class="sidebar">
         <div class="brand">
           <div class="eyebrow">RembertCarg SpA</div>
-          <h1>Flota Admin</h1>
+          <h1>ERP Flota</h1>
         </div>
-        <div style="margin-top:10px;">
-          ${items.map(it => `<div class="nav-item ${state.tab===it.id?'active':''}" data-tab="${it.id}">${it.label}</div>`).join('')}
-        </div>
+        
+        <div class="nav-group">Módulo Gerencia</div>
+        ${navItems.gerencia.map(it => `<div class="nav-item ${state.tab===it.id?'active':''}" data-tab="${it.id}">${it.label}</div>`).join('')}
+        
+        <div class="nav-group">Módulo Financiero</div>
+        ${navItems.costos.map(it => `<div class="nav-item ${state.tab===it.id?'active':''}" data-tab="${it.id}">${it.label}</div>`).join('')}
+
+        <div class="nav-group">Módulo Operacional</div>
+        ${navItems.operacion.map(it => `<div class="nav-item ${state.tab===it.id?'active':''}" data-tab="${it.id}">${it.label}</div>`).join('')}
+        
         <div class="sidebar-footer">
           <div class="user-tag"><b>${state.perfil.nombre}</b>${state.perfil.rol}</div>
         </div>
@@ -656,14 +688,10 @@
   function globalFilterBar(){
     return `
       <div class="global-filter-bar">
-        <div>
-          <span class="badge badge-dim">Filtro Global</span>
-        </div>
+        <div><span class="badge badge-dim">Filtro Global</span></div>
         <div class="filter-group">
-          <label>Desde</label>
-          <input type="date" id="g_desde" value="${state.filtroGlobal.desde}">
-          <label style="margin-left:8px;">Hasta</label>
-          <input type="date" id="g_hasta" value="${state.filtroGlobal.hasta}">
+          <label>Desde</label><input type="date" id="g_desde" value="${state.filtroGlobal.desde}">
+          <label style="margin-left:8px;">Hasta</label><input type="date" id="g_hasta" value="${state.filtroGlobal.hasta}">
           <button class="btn btn-primary" id="btn-aplicar-filtro" style="margin-left:8px;">Actualizar Panel</button>
         </div>
       </div>
@@ -672,82 +700,178 @@
 
   function contentHead(){
     const titles = { 
-      dashboard:'Torre de Control: Operación en Tiempo Real', 
-      taller:'Tablero Kanban: Reparaciones y Fallas',
-      turnos:'Base de Datos de Turnos', 
+      gerencia:'Módulo Gerencial: Margen de Ganancias',
+      costos:'Módulo Financiero: Top Costos y Rendimiento',
+      operacion:'Dashboard Operacional', 
+      taller:'Tablero Kanban: Mantenimiento y Reparaciones',
+      turnos:'Base de Datos de Turnos y Recorridos', 
       gastos:'Auditoría y Gastos en Ruta', 
-      quincenal:'Monitor Quincenal de Carrocería',
-      flota:'Camiones y Choferes',
-      costos:'Gestión Financiera y Cierres Mensuales'
+      flota:'Administración de Flota y Personal',
     };
     return `<div class="content-head"><h2>${titles[state.tab] || ''}</h2></div>`;
   }
 
   function tabBody(){
     switch(state.tab){
-      case 'dashboard': return dashboardTab();
+      case 'gerencia': return gerenciaTab();
+      case 'costos': return costosTab();
+      case 'operacion': return operacionTab();
       case 'taller': return tallerTab();
       case 'turnos': return turnosTab();
       case 'gastos': return gastosTab();
-      case 'quincenal': return quincenalTab();
       case 'flota': return flotaTab();
-      case 'costos': return `<div class="empty-state">Módulo de Costos Financieros (BD Creada, UI en construcción)</div>`;
       default: return `<div class="empty-state">Módulo en construcción...</div>`;
     }
   }
 
-  // ---------- Torre de Control ----------
-  function dashboardTab(){
-    if (state.dashboardLoading || !state.dashboardData) return `<div class="empty-state"><div class="spinner"></div>Calculando datos del periodo...</div>`;
-    const d = state.dashboardData;
-    const k = state.kanbanData;
+  // ---------- MÓDULO 1: GERENCIA ----------
+  function gerenciaTab(){
+    if (state.dashboardLoading || !state.datosPeriodo.ingresoBase) return `<div class="empty-state"><div class="spinner"></div>Calculando proyecciones...</div>`;
+    const d = state.datosPeriodo;
+    
+    const ingresoExtraNum = parseFloat(state.ingresoExtraManual) || 0;
+    const totalIngresos = d.ingresoBase + ingresoExtraNum;
+    const margen = totalIngresos - d.costoTotalMes;
+    const porcMargen = totalIngresos > 0 ? ((margen / totalIngresos) * 100).toFixed(1) : 0;
+
+    return `
+      <div class="panel-row" style="grid-template-columns:2fr 1fr;">
+        <div class="card" style="display:flex; flex-direction:column; justify-content:center;">
+          <div class="chart-title">Ingresos vs Costos Operativos</div>
+          <canvas id="chartGerencia" height="100"></canvas>
+        </div>
+        <div class="card" style="background:var(--accent-dim); border-color:var(--accent);">
+          <div class="chart-title" style="color:var(--accent);">Resumen Financiero</div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:36px; font-weight:700; color:var(--text); margin-bottom:4px;">${porcMargen}%</div>
+          <div style="font-size:12px; color:var(--text-dim); margin-bottom:16px;">Margen de Ganancias del periodo</div>
+          
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:14px;">
+            <span>Ingresos Totales:</span><span class="mono" style="color:var(--success); font-weight:700;">${fmtMoney(totalIngresos)}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:14px; padding-bottom:12px; border-bottom:1px solid var(--border);">
+            <span>Costos Totales:</span><span class="mono" style="color:var(--danger); font-weight:700;">${fmtMoney(d.costoTotalMes)}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-top:12px; font-size:16px;">
+            <span>Utilidad Neta:</span><span class="mono" style="color:var(--text); font-weight:700;">${fmtMoney(margen)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-row">
+        <div class="card">
+          <div class="chart-title">Desglose de Ingresos Exactos</div>
+          <p style="font-size:12px; color:var(--text-dim); margin-bottom:14px;">El sistema calcula automáticamente $8.250 por hora, detectando si es un día normal de 22h o un viernes continuo de 24h.</p>
+          
+          <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); font-size:14px;">
+            <span>Horas de Servicio Calculadas:</span><span class="mono">${d.horasCalculadas} hrs</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; padding:10px 0; font-size:14px; font-weight:700;">
+            <span>Ingreso por Horas:</span><span class="mono" style="color:var(--success);">${fmtMoney(d.ingresoBase)}</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="chart-title">Añadir Ingresos Extras o Recargos</div>
+          <label>Nombre del Ingreso (Ej: Horas Extras 50%)</label>
+          <input type="text" id="inp_nombre_extra" value="${state.nombreIngresoExtra}" style="margin-bottom:10px;">
+          <label>Monto a sumar al mes ($)</label>
+          <div style="display:flex; gap:10px;">
+            <input type="number" id="inp_monto_extra" value="${state.ingresoExtraManual}">
+            <button class="btn btn-secondary" id="btn-aplicar-extra" style="white-space:nowrap;">Aplicar a gráfica</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ---------- MÓDULO 2: COSTOS ----------
+  function costosTab(){
+    if (state.dashboardLoading) return `<div class="empty-state"><div class="spinner"></div>Analizando facturas...</div>`;
+    const d = state.datosPeriodo;
+    
     return `
       <div class="kpi-grid">
         <div class="kpi">
-          <div class="kpi-label">Eficiencia de Carga</div>
-          <div class="kpi-value">${d.promScooters} <span style="font-size:14px; color:var(--text-dim);">Scoot/Viaje</span></div>
-          <div class="kpi-sub">Prom. Baterías: ${d.promBaterias} x Viaje</div>
+          <div class="kpi-label">Frecuencia de Carga (Próximamente)</div>
+          <div class="kpi-value">-- <span style="font-size:14px; color:var(--text-dim);">Días</span></div>
+          <div class="kpi-sub">Promedio entre recargas de $40.000</div>
         </div>
+        <div class="kpi">
+          <div class="kpi-label">Rendimiento Estimado</div>
+          <div class="kpi-value">4.5 <span style="font-size:14px; color:var(--text-dim);">Km/L</span></div>
+          <div class="kpi-sub" style="color:var(--success);">Dentro de los parámetros normales</div>
+        </div>
+      </div>
+
+      <div class="panel-row">
+        <div class="card">
+          <div class="chart-title">Distribución de Costos</div>
+          <div style="max-height:220px; display:flex; justify-content:center;">
+             <canvas id="chartTopCostos"></canvas>
+          </div>
+        </div>
+        <div class="table-wrap" style="background:var(--surface);">
+          <div class="chart-title" style="padding:16px 16px 0;">Detalle de Egresos</div>
+          <table>
+            <tbody>
+              <tr><td>Sueldos Fijos (Estimado)</td><td class="mono" style="text-align:right;">${fmtMoney(d.costoSueldosFijos)}</td></tr>
+              <tr><td>Arriendo de Equipos (Estimado)</td><td class="mono" style="text-align:right;">${fmtMoney(d.costoArriendosFijos)}</td></tr>
+              <tr><td>Combustible en Ruta</td><td class="mono" style="text-align:right;">${fmtMoney(d.totalCombustible)}</td></tr>
+              <tr><td>Mantenimiento y Otros</td><td class="mono" style="text-align:right;">${fmtMoney(d.totalMantenimiento)}</td></tr>
+              <tr><td>Peajes</td><td class="mono" style="text-align:right;">${fmtMoney(d.totalPeajes)}</td></tr>
+            </tbody>
+            <tfoot>
+              <tr><th style="background:var(--surface-alt); padding:12px 14px;">Total Egresos</th><th class="mono" style="background:var(--surface-alt); padding:12px 14px; text-align:right; color:var(--danger); font-size:15px;">${fmtMoney(d.costoTotalMes)}</th></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  // ---------- MÓDULO 3: OPERACIÓN ----------
+  function operacionTab(){
+    if (state.dashboardLoading) return `<div class="empty-state"><div class="spinner"></div>Cargando indicadores operativos...</div>`;
+    const d = state.datosPeriodo;
+    
+    return `
+      <div class="kpi-grid">
         <div class="kpi">
           <div class="kpi-label">Desgaste de Flota (Km)</div>
           <div class="kpi-value">${d.kmTotales.toLocaleString('es-CL')} <span style="font-size:14px; color:var(--text-dim);">km</span></div>
-          <div class="kpi-sub">Basado en ${d.numViajes} viajes filtrados</div>
+          <div class="kpi-sub">Suma total de los turnos filtrados</div>
         </div>
-        <div class="kpi ${k.pendientes.length > 0 ? 'warn' : 'ok'}" style="border-color:${k.pendientes.length > 0 ? 'var(--warning)' : 'var(--border)'};">
-          <div class="kpi-label">Estado de Taller</div>
-          <div class="kpi-value" style="color:${k.pendientes.length > 0 ? 'var(--warning)' : 'var(--success)'};">${k.pendientes.length} <span style="font-size:14px;">Pendientes</span></div>
-          <div class="kpi-sub">${k.en_taller.length} tickets en reparación activa</div>
-        </div>
-      </div>
-      <div class="chart-grid">
-        <div class="chart-card">
-          <div class="chart-title">Top Categorías de Falla (Checklist)</div>
-          <canvas id="chartFallas" height="130"></canvas>
-        </div>
-        <div class="chart-card">
-          <div class="chart-title">Rendimiento Operativo (Km/L)</div>
-          <canvas id="chartRendimiento" height="130"></canvas>
-        </div>
-      </div>
-      <div class="chart-grid" style="grid-template-columns:1fr;">
-        <div class="table-wrap">
-          <div class="chart-title" style="padding:16px 16px 0; margin-bottom:10px;">Últimos Turnos Reportados</div>
-          ${d.turnosRecientes.length === 0 ? `<div class="empty-state">No hay turnos en este periodo.</div>` : `
-          <table>
-            <thead><tr><th>Patente</th><th>Chofer</th><th>Fecha</th><th>Estado</th></tr></thead>
-            <tbody>
-              ${d.turnosRecientes.map(t => `
-                <tr class="clickable" data-detalle="${t.id}">
-                  <td class="mono">${t.vehiculos ? t.vehiculos.patente : '—'}</td>
-                  <td>${t.usuarios ? t.usuarios.nombre : '—'}</td>
-                  <td class="dim">${fmtFechaCorta(t.fecha_inicio)}</td>
-                  <td>${t.estado === 'con_discrepancia' ? '<span class="badge badge-warn">Discrepancia</span>' : '<span class="badge badge-dim">Cerrado</span>'}</td>
-                </tr>
+        <div class="kpi">
+          <div class="kpi-label">Ranking Personal (Menos Km x Turno)</div>
+          ${d.rankingChoferes.length === 0 ? `<div class="kpi-sub" style="margin-top:2px;">Sin datos en el periodo.</div>` : 
+            `<div style="margin-top:8px; font-size:13px; display:flex; flex-direction:column; gap:6px;">
+              ${d.rankingChoferes.map((c, i) => `
+                <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--border); padding-bottom:4px;">
+                  <span><b>${i+1}.</b> ${c.nombre}</span><span class="mono" style="color:var(--success);">${c.promKm.toFixed(0)} km/turno</span>
+                </div>
               `).join('')}
-            </tbody>
-          </table>
-          `}
+            </div>`
+          }
         </div>
+      </div>
+      
+      <div class="table-wrap">
+        <div class="chart-title" style="padding:16px 16px 0; margin-bottom:10px;">Últimos Turnos Reportados a Bodega</div>
+        ${d.turnosRecientes.length === 0 ? `<div class="empty-state">No hay turnos en este periodo.</div>` : `
+        <table>
+          <thead><tr><th>Patente</th><th>Chofer</th><th>Fecha</th><th>Estado</th></tr></thead>
+          <tbody>
+            ${d.turnosRecientes.map(t => `
+              <tr class="clickable" data-detalle="${t.id}">
+                <td class="mono">${t.vehiculos ? t.vehiculos.patente : '—'}</td>
+                <td>${t.usuarios ? t.usuarios.nombre : '—'}</td>
+                <td class="dim">${fmtFechaCorta(t.fecha_inicio)}</td>
+                <td>${t.estado === 'con_discrepancia' ? '<span class="badge badge-warn">Discrepancia</span>' : '<span class="badge badge-dim">Cerrado</span>'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        `}
       </div>
     `;
   }
@@ -755,54 +879,34 @@
   // ---------- Taller Kanban ----------
   function tallerTab(){
     const k = state.kanbanData;
+    if(state.tallerLoading) return `<div class="load-row"><div class="spinner"></div>Sincronizando Taller...</div>`;
+    const cols = ['Pendiente', 'En Reparación', 'Resuelto'];
+    const colors = {'Pendiente':'var(--danger)', 'En Reparación':'var(--warning)', 'Resuelto':'var(--success)'};
+    const badges = {'Pendiente':'badge-danger', 'En Reparación':'badge-warn', 'Resuelto':'badge-ok'};
+
     return `
       <p style="font-size:13px; color:var(--text-dim); margin-bottom:20px;">
-        Esta vista unifica los "NC" (No Conformidad) de los checklists en <b>Tickets únicos</b>. 
-        Al mover un ticket a "En Reparación", los choferes pueden seguir marcando "NC" en sus reportes diarios sin inflar las métricas de fallas. 
-        <br><i>(El guardado del estado requiere ejecutar el nuevo script de la BD).</i>
+        Arrastra las tarjetas para cambiar su estado. Los nuevos "NC" del checklist de los choferes aparecen automáticamente en <b>Pendiente</b>.
       </p>
-      
       <div class="kanban-board">
-        <!-- Columna Pendientes -->
-        <div class="kanban-col">
-          <div class="kanban-header">
-            <span>🔴 Pendiente Revisión</span>
-            <span class="badge badge-danger">${k.pendientes.length}</span>
+        ${cols.map(estado => `
+          <div class="kanban-col" data-estado="${estado}" ondragover="window.kanbanAllowDrop(event)" ondrop="window.kanbanDrop(event)">
+            <div class="kanban-header">
+              <span style="color:${colors[estado]};">${estado}</span>
+              <span class="badge ${badges[estado]}">${k[estado].length}</span>
+            </div>
+            <div class="kanban-body">
+              ${k[estado].map(t => `
+                <div class="ticket-card" draggable="true" ondragstart="window.kanbanDragStart(event)" data-id="${t.id}">
+                  <div class="t-meta"><span>${fmtFechaCorta(t.fecha_reporte)}</span><span>#${t.id.slice(0,5).toUpperCase()}</span></div>
+                  <div class="t-patente">${t.vehiculos?.patente || '—'}</div>
+                  <div class="t-falla">${t.categoria}</div>
+                  <div class="t-desc">"${t.descripcion}"</div>
+                </div>
+              `).join('')}
+            </div>
           </div>
-          <div class="kanban-body">
-            ${k.pendientes.length === 0 ? `<div class="empty-state">Sin fallas pendientes.</div>` : k.pendientes.map(t => `
-              <div class="ticket-card">
-                <div class="t-meta"><span>${fmtFechaCorta(t.fecha)}</span><span>NUEVO</span></div>
-                <div class="t-patente">${t.patente}</div>
-                <div class="t-falla">${t.falla}</div>
-                <div class="t-desc">"${t.comentario}"</div>
-                <button class="btn btn-ghost" style="width:100%; font-size:11px; padding:6px;">Mover a En Reparación ›</button>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-
-        <!-- Columna En Reparación -->
-        <div class="kanban-col">
-          <div class="kanban-header">
-            <span style="color:var(--warning);">🟡 En Reparación</span>
-            <span class="badge badge-warn">0</span>
-          </div>
-          <div class="kanban-body">
-             <div class="empty-state">Arrastra aquí los vehículos que ingresan a taller.</div>
-          </div>
-        </div>
-
-        <!-- Columna Resueltos -->
-        <div class="kanban-col">
-          <div class="kanban-header">
-            <span style="color:var(--success);">🟢 Resuelto</span>
-            <span class="badge badge-ok">0</span>
-          </div>
-          <div class="kanban-body">
-             <div class="empty-state">Tickets cerrados del periodo.</div>
-          </div>
-        </div>
+        `).join('')}
       </div>
     `;
   }
@@ -812,6 +916,12 @@
     const f = state.turnosFiltro;
     return `
       <div class="filters">
+        <div class="filter-field"><label>Chofer</label>
+          <select id="f_turno_chofer">
+            <option value="">Todos</option>
+            ${state.choferes.map(c => `<option value="${c.id}" ${f.chofer===c.id?'selected':''}>${c.nombre}</option>`).join('')}
+          </select>
+        </div>
         <div class="filter-field"><label>Camión</label>
           <select id="f_turno_vehiculo">
             <option value="">Todos</option>
@@ -826,7 +936,7 @@
             <option value="con_discrepancia" ${f.estado==='con_discrepancia'?'selected':''}>Con discrepancia</option>
           </select>
         </div>
-        <button class="btn btn-primary" id="btn-filtrar-turnos">Filtrar Tabla</button>
+        <button class="btn btn-primary" id="btn-filtrar-turnos">Aplicar Filtros Locales</button>
       </div>
       <div class="table-wrap">
         ${state.turnosLoading ? `<div class="load-row"><div class="spinner"></div>Cargando turnos…</div>` : (
@@ -902,35 +1012,6 @@
     `;
   }
 
-  // ---------- Carrocería quincenal ----------
-  function quincenalTab(){
-    const CATS = [
-      { key:'fotos_puertas', label:'Puertas' },
-      { key:'fotos_parachoques', label:'Parachoques' },
-      { key:'fotos_focos', label:'Focos' },
-      { key:'fotos_espejos', label:'Espejos' },
-      { key:'fotos_costados', label:'Costados' },
-    ];
-    if (state.quincenalLoading) return `<div class="load-row"><div class="spinner"></div>Cargando registros…</div>`;
-    if (state.quincenal.length === 0) return `<div class="empty-state">Aún no hay registros de carrocería en este periodo.</div>`;
-    return `
-      <div class="quincenal-grid">
-        ${state.quincenal.map(r => `
-          <div class="quincenal-card">
-            <div class="vp">${r.vehiculos ? r.vehiculos.patente : '—'}</div>
-            <div class="fecha">${fmtFecha(r.fecha_registro)} · ${r.usuarios ? r.usuarios.nombre : '—'}</div>
-            ${CATS.map(c => (r[c.key] && r[c.key].length > 0) ? `
-              <div class="quincenal-cat">${c.label} (${r[c.key].length})</div>
-              <div class="quincenal-photos">
-                ${r[c.key].map(url => `<a href="${url}" target="_blank"><img src="${url}"></a>`).join('')}
-              </div>
-            ` : '').join('')}
-          </div>
-        `).join('')}
-      </div>
-    `;
-  }
-
   // ---------- Camiones y choferes ----------
   function flotaTab(){
     return `
@@ -939,14 +1020,13 @@
           <div class="panel-title">Camiones (${state.vehiculos.length})</div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Patente</th><th>Modelo</th><th>Estanque</th><th>Rend. esperado</th><th>Estado</th></tr></thead>
+              <thead><tr><th>Patente</th><th>Modelo</th><th>Estanque</th><th>Estado</th></tr></thead>
               <tbody>
                 ${state.vehiculos.map(v => `
                   <tr>
                     <td class="mono">${v.patente}</td>
                     <td>${[v.marca, v.modelo].filter(Boolean).join(' ') || '—'}</td>
                     <td class="mono">${v.capacidad_estanque_l ? v.capacidad_estanque_l + ' L' : '—'}</td>
-                    <td class="mono">${v.rendimiento_esperado_kml ? v.rendimiento_esperado_kml + ' km/L' : '—'}</td>
                     <td>${v.activo ? '<span class="badge badge-ok">Activo</span>' : '<span class="badge badge-dim">Inactivo</span>'}</td>
                   </tr>
                 `).join('')}
@@ -978,13 +1058,10 @@
 
   // ---------- Drawer detalle de turno ----------
   function drawerDetalleTurno(){
-    if (state.detalleLoading){
-      return `<div class="overlay" id="overlay-detalle"><div class="drawer"><div class="load-row"><div class="spinner"></div>Cargando detalle…</div></div></div>`;
-    }
+    if (state.detalleLoading) return `<div class="overlay" id="overlay-detalle"><div class="drawer"><div class="load-row"><div class="spinner"></div>Cargando detalle…</div></div></div>`;
     const d = state.detalle;
-    if (!d || d.error){
-      return `<div class="overlay" id="overlay-detalle"><div class="drawer"><div class="login-error">⚠ ${d ? d.error : 'Error desconocido'}</div></div></div>`;
-    }
+    if (!d || d.error) return `<div class="overlay" id="overlay-detalle"><div class="drawer"><div class="login-error">⚠ ${d ? d.error : 'Error desconocido'}</div></div></div>`;
+    
     const t = d.turno;
     const km = t.odometro_fin != null ? (t.odometro_fin - t.odometro_inicio) : null;
     const totalGastos = d.gastos.reduce((s,g) => s + (parseFloat(g.monto)||0), 0);
@@ -1011,8 +1088,8 @@
             <div class="meta-row"><span>Estado</span><span>${ESTADO_TURNO_BADGE[t.estado] || t.estado}</span></div>
             ${(t.foto_odometro_inicio_url || t.foto_odometro_fin_url) ? `
               <div class="odo-photos">
-                ${t.foto_odometro_inicio_url ? t.foto_odometro_inicio_url.split(',').filter(Boolean).map(u => `<a href="${u}" target="_blank"><img src="${u}" title="Odómetro inicio"></a>`).join('') : ''}
-                ${t.foto_odometro_fin_url ? t.foto_odometro_fin_url.split(',').filter(Boolean).map(u => `<a href="${u}" target="_blank"><img src="${u}" title="Odómetro fin"></a>`).join('') : ''}
+                ${t.foto_odometro_inicio_url ? t.foto_odometro_inicio_url.split(',').filter(Boolean).map(u => `<a href="${u}" target="_blank"><img src="${u}"></a>`).join('') : ''}
+                ${t.foto_odometro_fin_url ? t.foto_odometro_fin_url.split(',').filter(Boolean).map(u => `<a href="${u}" target="_blank"><img src="${u}"></a>`).join('') : ''}
               </div>
             ` : ''}
           </div>
@@ -1081,11 +1158,12 @@
         state.filtroGlobal.desde = document.getElementById('g_desde').value;
         state.filtroGlobal.hasta = document.getElementById('g_hasta').value;
         cargarDatosTabActual();
-        render();
       });
     }
 
     // Filtros de turnos
+    const fc = document.getElementById('f_turno_chofer');
+    if (fc) fc.addEventListener('change', e => setField('turnosFiltro','chofer', e.target.value));
     const fv = document.getElementById('f_turno_vehiculo');
     if (fv) fv.addEventListener('change', e => setField('turnosFiltro','vehiculo', e.target.value));
     const fe = document.getElementById('f_turno_estado');
@@ -1112,6 +1190,17 @@
     if (btnCerrarDet) btnCerrarDet.addEventListener('click', cerrarDetalle);
     const overlay = document.getElementById('overlay-detalle');
     if (overlay) overlay.addEventListener('click', e => { if (e.target === overlay) cerrarDetalle(); });
+
+    // Ingresos extras
+    const btnExtra = document.getElementById('btn-aplicar-extra');
+    if(btnExtra) {
+      btnExtra.addEventListener('click', () => {
+        state.nombreIngresoExtra = document.getElementById('inp_nombre_extra').value;
+        state.ingresoExtraManual = document.getElementById('inp_monto_extra').value;
+        renderizarGraficos();
+        render(); 
+      });
+    }
   }
 
   // Arranque del panel
