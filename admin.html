@@ -158,6 +158,13 @@
   @media (max-width: 900px){ .panel-row{grid-template-columns:1fr;} }
   .panel-title{font-size:13px; font-weight:600; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;}
 
+  /* ---------- Input Tabla Especial ---------- */
+  .table-input{
+    background: transparent; border: 1px solid transparent; color: var(--text); 
+    font-family: 'JetBrains Mono', monospace; font-size: 14px; width: 120px; padding: 4px 8px; border-radius: 4px; text-align:right;
+  }
+  .table-input:focus, .table-input:hover { border-color: var(--border); background: var(--bg); outline: none; }
+
   /* ---------- Drawer y Fotos ---------- */
   .overlay{position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:20; display:flex; justify-content:flex-end;}
   .drawer{width:100%; max-width:560px; background:var(--bg); border-left:1px solid var(--border); height:100vh; overflow-y:auto; padding:24px 26px;}
@@ -215,7 +222,6 @@
 
   let chartGerenciaInstance = null;
   let chartTopCostosInstance = null;
-  let chartRendimientoInstance = null;
 
   // Establecer el mes actual para el filtro global por defecto
   const hoy = new Date();
@@ -229,7 +235,7 @@
     authError: null,
     configError: !supabase,
 
-    tab: 'gerencia', // Nueva pestaña principal por defecto
+    tab: 'estructura_costos', // <--- Te llevo directo a esta pestaña para que la pruebes
     
     // Filtro Global
     filtroGlobal: { desde: primerDiaMes, hasta: ultimoDiaMes },
@@ -238,12 +244,13 @@
     choferes: [],
     dataBoot: false,
     
-    // Almacena datos transversales calculados en el dashboard
+    costosFijos: {}, // Para guardar lo que traemos de la BD
+    costosLoading: false,
+
     datosPeriodo: {
         ingresoCalculado: 0,
         horasCalculadas: 0,
         totalCombustible: 0,
-        // ...
     },
     dashboardLoading: false,
 
@@ -266,9 +273,8 @@
     detalle: null,
     detalleLoading: false,
     
-    // Inputs extras temporales para Gerencia
     ingresoExtraManual: 0,
-    nombreIngresoExtra: 'Bono / Otros',
+    nombreIngresoExtra: 'Ingreso Extra',
   };
 
   function setState(patch){ state = Object.assign({}, state, patch); scheduleRender(); }
@@ -386,19 +392,61 @@
     if (state.tab === 'taller') cargarTallerKanban();
     if (state.tab === 'turnos') cargarTurnos();
     if (state.tab === 'gastos') cargarGastos();
+    if (state.tab === 'estructura_costos') cargarCostosFijos(); // Llamada al nuevo módulo
+  }
+
+  // =====================================================================
+  // NUEVO: CARGA Y GUARDADO DE ESTRUCTURA DE COSTOS
+  // =====================================================================
+  async function cargarCostosFijos(){
+    setState({ costosLoading: true });
+    try {
+      // Obtenemos los valores guardados
+      const { data } = await supabase.from('costos_fijos_base').select('*');
+      const diccionarioCostos = {};
+      
+      (data || []).forEach(row => {
+          // Guardamos en un diccionario usando el ID como llave
+          if(row.vehiculo_id) diccionarioCostos[row.vehiculo_id] = row.monto_defecto;
+          if(row.chofer_id) diccionarioCostos[row.chofer_id] = row.monto_defecto;
+      });
+
+      setState({ costosLoading: false, costosFijos: diccionarioCostos });
+    } catch(e) {
+      console.error(e);
+      setState({ costosLoading: false });
+    }
+  }
+
+  async function guardarCostoFijo(entidadId, tipo, montoRaw){
+    const monto = parseFloat(montoRaw) || 0;
+    
+    // Lógica Upsert: Primero intentamos ver si ya existe para hacer update, sino insertamos
+    const campoID = tipo === 'vehiculo' ? 'vehiculo_id' : 'chofer_id';
+    const concepto = tipo === 'vehiculo' ? 'Arriendo Camión' : 'Sueldo Base';
+    
+    const { data: existente } = await supabase.from('costos_fijos_base').select('id').eq(campoID, entidadId).maybeSingle();
+    
+    if (existente) {
+        await supabase.from('costos_fijos_base').update({ monto_defecto: monto }).eq('id', existente.id);
+    } else {
+        await supabase.from('costos_fijos_base').insert({ [campoID]: entidadId, concepto: concepto, monto_defecto: monto });
+    }
+    
+    // Actualizar el estado local para que se refleje de inmediato sin recargar toda la BD
+    state.costosFijos[entidadId] = monto;
+    scheduleRender();
   }
 
   // =====================================================================
   // MOTOR MATEMÁTICO: GERENCIA Y OPERACIÓN
   // =====================================================================
   function calcularIngresosExactos(desdeStr, hastaStr) {
-      // Regla de Negocio: 24h los viernes, 22h resto de días. a 8250 la hora.
       let d = new Date(desdeStr + 'T00:00:00');
       let end = new Date(hastaStr + 'T23:59:59');
       let totalHoras = 0;
       
       while(d <= end) {
-          // getDay() 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
           if(d.getDay() === 5) totalHoras += 24; 
           else totalHoras += 22;
           d.setDate(d.getDate() + 1);
@@ -412,10 +460,11 @@
       const fD = state.filtroGlobal.desde + 'T00:00:00';
       const fH = state.filtroGlobal.hasta + 'T23:59:59';
 
-      const [{ data: turnos }, { data: viajes }, { data: gastos }] = await Promise.all([
+      const [{ data: turnos }, { data: viajes }, { data: gastos }, { data: costosFijosBD }] = await Promise.all([
         supabase.from('turnos').select('*, vehiculos(patente), usuarios(id, nombre)').gte('fecha_inicio', fD).lte('fecha_inicio', fH).order('fecha_inicio',{ascending:false}),
         supabase.from('viajes_bodega').select('*').gte('hora_salida_bodega', fD).lte('hora_salida_bodega', fH),
-        supabase.from('gastos').select('*').gte('fecha', fD).lte('fecha', fH)
+        supabase.from('gastos').select('*').gte('fecha', fD).lte('fecha', fH),
+        supabase.from('costos_fijos_base').select('*') // Traemos los costos fijos reales de la BD
       ]);
 
       // --- CÁLCULO DE INGRESOS ---
@@ -431,9 +480,25 @@
          else if(g.tipo === 'peaje') totalPeajes += m;
          else totalMantenimiento += m;
       });
-      // (Los sueldos y arriendos los simulamos temporalmente hasta cruzar con la BD Financiera que creamos)
-      const costoSueldosFijos = 1800000; 
-      const costoArriendosFijos = 1200000;
+
+      // --- CÁLCULO DE COSTOS FIJOS REALES ---
+      // IMPORTANTE: En el futuro esto leerá de la tabla "cierre_mensual", por ahora, asume el 100% de la cuota base
+      // proporcional a los días seleccionados (Ej: Si filtras 15 días, cobra la mitad del arriendo mensual)
+      
+      let sumaBaseSueldos = 0;
+      let sumaBaseArriendos = 0;
+      (costosFijosBD || []).forEach(row => {
+          if(row.vehiculo_id) sumaBaseArriendos += parseFloat(row.monto_defecto);
+          if(row.chofer_id) sumaBaseSueldos += parseFloat(row.monto_defecto);
+      });
+
+      // Cálculo de proporcionalidad de días
+      const unDia = 24 * 60 * 60 * 1000;
+      const diasFiltro = Math.round(Math.abs((new Date(fH) - new Date(fD)) / unDia));
+      const proporcion = Math.min(diasFiltro / 30, 1); // Nunca cobra más del mes base (1)
+
+      const costoSueldosFijos = Math.round(sumaBaseSueldos * proporcion); 
+      const costoArriendosFijos = Math.round(sumaBaseArriendos * proporcion);
       const costoTotalMes = totalCombustible + totalPeajes + totalMantenimiento + costoSueldosFijos + costoArriendosFijos;
 
       // --- CÁLCULO OPERACIONAL (Choferes, Km, Carga) ---
@@ -458,11 +523,11 @@
         totalBaterias += (v.baterias_cargadas || 0);
       });
 
-      // SOLUCIÓN: Ranking basado SÓLO en el menor Kilometraje promedio por turno (Lo más simple)
+      // Ranking de Menor Kilometraje Promedio
       const rankingChoferes = Object.values(choferStats)
         .filter(c => c.turnos > 0)
         .map(c => ({ nombre: c.nombre, promKm: c.km / c.turnos }))
-        .sort((a,b) => a.promKm - b.promKm) // De menor a mayor (Menos km es mejor)
+        .sort((a,b) => a.promKm - b.promKm) // De menor a mayor
         .slice(0, 3); 
 
       setState({
@@ -472,7 +537,8 @@
           totalCombustible, totalPeajes, totalMantenimiento, costoTotalMes, costoSueldosFijos, costoArriendosFijos,
           kmTotales, totalScooters, totalBaterias, rankingChoferes,
           numViajes: (viajes||[]).length,
-          turnosRecientes: (turnos || []).slice(0, 5)
+          turnosRecientes: (turnos || []).slice(0, 5),
+          hayCostosFijos: (sumaBaseSueldos + sumaBaseArriendos) > 0 // Flag visual
         }
       });
       
@@ -652,7 +718,8 @@
       ],
       costos: [
         { id:'costos', label:'Desglose de Costos' },
-        { id:'gastos', label:'Auditoría de Gastos (BD)' },
+        { id:'estructura_costos', label:'Configurar Costos Base' }, // <--- EL NUEVO MÓDULO
+        { id:'gastos', label:'Auditoría de Gastos (Ruta)' },
       ],
       operacion: [
         { id:'operacion', label:'Dashboard Operativo' },
@@ -692,7 +759,7 @@
         <div class="filter-group">
           <label>Desde</label><input type="date" id="g_desde" value="${state.filtroGlobal.desde}">
           <label style="margin-left:8px;">Hasta</label><input type="date" id="g_hasta" value="${state.filtroGlobal.hasta}">
-          <button class="btn btn-primary" id="btn-aplicar-filtro" style="margin-left:8px;">Actualizar Panel</button>
+          <button class="btn btn-primary" id="btn-aplicar-filtro" style="margin-left:8px;">Actualizar ERP</button>
         </div>
       </div>
     `;
@@ -702,6 +769,7 @@
     const titles = { 
       gerencia:'Módulo Gerencial: Margen de Ganancias',
       costos:'Módulo Financiero: Top Costos y Rendimiento',
+      estructura_costos:'Módulo Financiero: Costos Fijos Base (Contratos)',
       operacion:'Dashboard Operacional', 
       taller:'Tablero Kanban: Mantenimiento y Reparaciones',
       turnos:'Base de Datos de Turnos y Recorridos', 
@@ -715,6 +783,7 @@
     switch(state.tab){
       case 'gerencia': return gerenciaTab();
       case 'costos': return costosTab();
+      case 'estructura_costos': return estructuraCostosTab();
       case 'operacion': return operacionTab();
       case 'taller': return tallerTab();
       case 'turnos': return turnosTab();
@@ -722,6 +791,59 @@
       case 'flota': return flotaTab();
       default: return `<div class="empty-state">Módulo en construcción...</div>`;
     }
+  }
+
+  // ---------- NUEVO: ESTRUCTURA DE COSTOS ----------
+  function estructuraCostosTab(){
+    if (state.costosLoading) return `<div class="empty-state"><div class="spinner"></div>Cargando contratos y arriendos...</div>`;
+    
+    return `
+      <p style="font-size:13px; color:var(--text-dim); margin-bottom:20px;">
+        Ingresa el valor mensual del contrato de cada recurso. El sistema usará estos montos para 
+        calcular los egresos proporcionales en el Módulo de Gerencia y Costos.<br>
+        <i>* Los cambios se guardan automáticamente al perder el foco de la celda.</i>
+      </p>
+
+      <div class="panel-row">
+        <div>
+          <div class="panel-title">Sueldo Base Mensual (Choferes)</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Trabajador</th><th style="text-align:right;">Monto Mensual ($)</th></tr></thead>
+              <tbody>
+                ${state.choferes.map(c => `
+                  <tr>
+                    <td>${c.nombre}</td>
+                    <td style="text-align:right;">
+                      <input type="text" class="table-input monto-costo-fijo" data-id="${c.id}" data-tipo="chofer" value="${state.costosFijos[c.id] || 0}" placeholder="Ej: 800000">
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div>
+          <div class="panel-title">Arriendo Mensual (Camiones)</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Vehículo</th><th style="text-align:right;">Monto Mensual ($)</th></tr></thead>
+              <tbody>
+                ${state.vehiculos.map(v => `
+                  <tr>
+                    <td class="mono">${v.patente}</td>
+                    <td style="text-align:right;">
+                      <input type="text" class="table-input monto-costo-fijo" data-id="${v.id}" data-tipo="vehiculo" value="${state.costosFijos[v.id] || 0}" placeholder="Ej: 1200000">
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   // ---------- MÓDULO 1: GERENCIA ----------
@@ -735,6 +857,12 @@
     const porcMargen = totalIngresos > 0 ? ((margen / totalIngresos) * 100).toFixed(1) : 0;
 
     return `
+      ${!d.hayCostosFijos ? `
+        <div style="background:var(--warning-dim); border:1px solid var(--warning); color:var(--warning); padding:12px; border-radius:8px; font-size:13px; margin-bottom:18px;">
+          ⚠ <b>Atención:</b> No has configurado los costos base de sueldos o arriendos. Ve al menú <b>"Configurar Costos Base"</b> o tu margen de ganancia será irreal (muy alto).
+        </div>
+      ` : ''}
+
       <div class="panel-row" style="grid-template-columns:2fr 1fr;">
         <div class="card" style="display:flex; flex-direction:column; justify-content:center;">
           <div class="chart-title">Ingresos vs Costos Operativos</div>
@@ -814,8 +942,8 @@
           <div class="chart-title" style="padding:16px 16px 0;">Detalle de Egresos</div>
           <table>
             <tbody>
-              <tr><td>Sueldos Fijos (Estimado)</td><td class="mono" style="text-align:right;">${fmtMoney(d.costoSueldosFijos)}</td></tr>
-              <tr><td>Arriendo de Equipos (Estimado)</td><td class="mono" style="text-align:right;">${fmtMoney(d.costoArriendosFijos)}</td></tr>
+              <tr><td>Sueldos Fijos (Proporcional Días)</td><td class="mono" style="text-align:right;">${fmtMoney(d.costoSueldosFijos)}</td></tr>
+              <tr><td>Arriendo Equipos (Proporcional Días)</td><td class="mono" style="text-align:right;">${fmtMoney(d.costoArriendosFijos)}</td></tr>
               <tr><td>Combustible en Ruta</td><td class="mono" style="text-align:right;">${fmtMoney(d.totalCombustible)}</td></tr>
               <tr><td>Mantenimiento y Otros</td><td class="mono" style="text-align:right;">${fmtMoney(d.totalMantenimiento)}</td></tr>
               <tr><td>Peajes</td><td class="mono" style="text-align:right;">${fmtMoney(d.totalPeajes)}</td></tr>
@@ -847,7 +975,7 @@
             `<div style="margin-top:8px; font-size:13px; display:flex; flex-direction:column; gap:6px;">
               ${d.rankingChoferes.map((c, i) => `
                 <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--border); padding-bottom:4px;">
-                  <span><b>${i+1}.</b> ${c.nombre}</span><span class="mono" style="color:var(--success);">${c.promKm.toFixed(0)} km/turno</span>
+                  <span><b>${i+1}.</b> ${c.nombre}</span><span class="mono" style="color:var(--success);">${c.promKm.toFixed(0)} km</span>
                 </div>
               `).join('')}
             </div>`
@@ -1160,6 +1288,16 @@
         cargarDatosTabActual();
       });
     }
+
+    // Configuración de Costos (Autoguardado al perder foco)
+    document.querySelectorAll('.monto-costo-fijo').forEach(input => {
+        input.addEventListener('blur', (e) => {
+            const entidadId = e.target.dataset.id;
+            const tipo = e.target.dataset.tipo;
+            const valor = e.target.value;
+            guardarCostoFijo(entidadId, tipo, valor);
+        });
+    });
 
     // Filtros de turnos
     const fc = document.getElementById('f_turno_chofer');
